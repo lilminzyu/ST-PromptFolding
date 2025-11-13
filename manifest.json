@@ -1,0 +1,13 @@
+{
+  "display_name": "Prompt Folding",
+  "loading_order": 1,
+  "requires": [],
+  "optional": [],
+  "js": "index.js",
+  "css": ["collapsible-prompt.css"],
+  "settings": "settings.html",
+  "type": "module",
+  "author": "mingyu",
+  "version": "2.1.0",
+  "homePage": "https://github.com/iiimabbie/ST-PromptFolding"
+}

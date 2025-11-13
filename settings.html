@@ -1,0 +1,40 @@
+<div id="prompt-folding-settings" class="range-block marginBot10" style="display: none; width: 100%; box-sizing: border-box;">
+    <div class="inline-drawer-content" style="display: block;">
+        <div style="position: relative;">
+            <h3>分組標示設定</h3>
+            <span class="mingyu-help-icon" title="輸入用於標識群組標題的符號或文字。&#10;&#10;此設定對「標準模式」和「包覆模式」皆有效。&#10;&#10;範例：&#10;• 輸入「=」會匹配「=」開頭的提示詞&#10;• 輸入「---」會匹配「---」開頭的提示詞">?</span>
+        </div>
+        <p class="settings-subtitle" style="font-size: 12px; opacity: 0.7; margin-top: -5px; margin-bottom: 10px;">此設定對所有摺疊模式皆有效。</p>
+        <label for="prompt-folding-dividers">
+            <span>分組標示符號（一行一個）</span>
+        </label>
+        <textarea id="prompt-folding-dividers" class="text_pole textarea_compact" rows="4" placeholder="=&#10;-"></textarea>
+        
+        <label class="checkbox_label marginTop10" for="prompt-folding-case-sensitive">
+            <input id="prompt-folding-case-sensitive" type="checkbox" />
+            <span>區分大小寫</span>
+        </label>
+
+        <h4 class="marginTop10">摺疊模式</h4>
+        <div id="prompt-folding-mode-radios" class="flex-container">
+            <label class="radio_label" title="標準模式：從一個標頭開始，摺疊其後的所有項目，直到遇到下一個標頭為止。">
+                <input type="radio" name="folding-mode" value="standard" id="prompt-folding-mode-standard">
+                <span>標準模式</span>
+            </label>
+            <label class="radio_label" title="包覆模式：尋找一對相同的標頭，並將這對標頭以及它們之間的所有項目摺疊成一個群組。">
+                <input type="radio" name="folding-mode" value="sandwich" id="prompt-folding-mode-sandwich">
+                <span>包覆模式</span>
+            </label>
+        </div>
+
+        <div class="flex-container justifyCenter marginTop10">
+            <div id="prompt-folding-apply" class="menu_button menu_button_icon">
+                <i class="fa-solid fa-check"></i> 套用
+            </div>
+            <div id="prompt-folding-reset" class="menu_button menu_button_icon">
+                <i class="fa-solid fa-rotate-left"></i> 重設
+            </div>
+        </div>
+        <div id="prompt-folding-version-info"></div>
+    </div>
+</div>
