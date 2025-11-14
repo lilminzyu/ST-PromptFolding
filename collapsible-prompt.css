@@ -61,8 +61,7 @@
     flex: 1;
     display: inline-flex;
     align-items: center;
-    /* 移除 JS 中加入的 padding-left，改由箭頭的 margin-right 控制間距 */
-    padding-left: 0 !important; 
+    margin-left: 0.5em;
 }
 
 /* 5. 標題內的星號圖示隱藏
