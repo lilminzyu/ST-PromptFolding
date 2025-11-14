@@ -5,7 +5,7 @@ export const config = {
         appBody: 'body',
         promptList: '#completion_prompt_manager_list',
         promptListItem: 'li.completion_prompt_manager_prompt',
-        promptLink: 'a.prompt-manager-inspect-action',
+        promptLink: 'span.completion_prompt_manager_prompt_name',
         promptAsterisk: '.fa-asterisk', // 標題列要隱藏的星號
         listHeader: '.completion_prompt_manager_list_head',
     },

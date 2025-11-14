@@ -136,7 +136,7 @@ export function buildCollapsibleGroups(listContainer) {
                     });
 
                     if (closingHeaderIndex !== -1) {
-                        // 修正後邏輯：要摺疊的內容包含從開始到結束的所有項目(包含結束標頭)。
+                        // 要摺疊的內容包含從開始到結束的所有項目(包含結束標頭)。
                         const contentItems = itemsToProcess.splice(0, closingHeaderIndex + 1);
 
                         currentItem.classList.add(config.classNames.isGroupHeader);

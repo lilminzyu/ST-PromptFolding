@@ -1,5 +1,5 @@
 /*
- * (c) 2024 mingyu
+ * (c) 2025 mingyu
  * 可摺疊提示詞群組的樣式
  */
 
@@ -80,7 +80,7 @@
     margin-top: 5px; /* 內容和標題之間加點間距 */
 }
 
-/* 7. 拖曳狀態的視覺回饋 (改進)
+/* 7. 拖曳狀態的視覺回饋
 ------------------------------------------------------------ */
 li.completion_prompt_manager_prompt[draggable="true"] {
     cursor: move;
@@ -99,13 +99,13 @@ li.completion_prompt_manager_prompt.dragging {
     border-radius: 4px;
 }
 
-/* 8. 拖曳目標區域的視覺回饋 (新增)
+/* 8. 拖曳目標區域的視覺回饋
 ------------------------------------------------------------ */
 li.completion_prompt_manager_prompt[draggable="true"]:hover {
     background-color: rgba(255, 255, 255, 0.05);
 }
 
-/* 10. 空群組的提示 (保持)
+/* 10. 空群組的提示
 ------------------------------------------------------------ */
 .mingyu-prompt-group-content:empty::after {
     content: '(空群組)';
@@ -116,7 +116,7 @@ li.completion_prompt_manager_prompt[draggable="true"]:hover {
     display: block;
 }
 
-/* 11. Hover 效果改進 (保持)
+/* 11. Hover 效果
 ------------------------------------------------------------ */
 .mingyu-prompt-group > summary:hover {
     background-color: rgba(255, 255, 255, 0.05);
@@ -127,7 +127,7 @@ li.completion_prompt_manager_prompt[draggable="true"]:hover {
     color: #fff; /* 懸停時箭頭變亮 */
 }
 
-/* 12. 焦點狀態 (保持)
+/* 12. 焦點狀態
 ------------------------------------------------------------ */
 .mingyu-prompt-group > summary:focus {
     outline: 2px solid #4a9eff;
@@ -135,7 +135,7 @@ li.completion_prompt_manager_prompt[draggable="true"]:hover {
     border-radius: 4px;
 }
 
-/* 13. 過渡動畫改進 (保持)
+/* 13. 過渡動畫
 ------------------------------------------------------------ */
 .mingyu-prompt-group-content {
     animation: slideDown 0.2s ease-out;
@@ -152,7 +152,7 @@ li.completion_prompt_manager_prompt[draggable="true"]:hover {
     }
 }
 
-/* 14. 深色主題適配 (保持)
+/* 14. 深色主題適配
 ------------------------------------------------------------ */
 @media (prefers-color-scheme: light) {
     .mingyu-prompt-group > summary::before {
