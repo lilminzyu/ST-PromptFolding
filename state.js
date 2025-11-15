@@ -36,6 +36,10 @@ export let state = {
     customDividers: JSON.parse(localStorage.getItem(config.storageKeys.customDividers) || 'null') || config.defaultDividers,
     caseSensitive: localStorage.getItem(config.storageKeys.caseSensitive) === 'true',
     foldingMode: localStorage.getItem(config.storageKeys.foldingMode) || 'standard',
+
+    groupHierarchy: {}, // { 'group-key': ['child-id-1', 'child-id-2'] }
+    groupHeaderStatus: {}, // { 'group-key': true/false }
+    groupKeyToHeaderId: {}, // { 'groupKey': 'headerId' }
 };
 
 export let dividerRegex = buildDividerRegex();

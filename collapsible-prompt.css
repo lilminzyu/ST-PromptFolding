@@ -290,3 +290,18 @@ li.completion_prompt_manager_prompt[draggable="true"]:hover {
     color: #888;
     opacity: 0.7;
 }
+
+/* 18. 群組禁用時的子項目樣式
+------------------------------------------------------------ */
+li.completion_prompt_manager_prompt.prompt-controlled-by-disabled-group > span:not(.prompt_manager_prompt_tokens) {
+    filter: grayscale(80%);
+    opacity: 0.6;
+    /* 讓文字和大部分按鈕無法互動，因為它們被父層控制了 */
+    pointer-events: none; 
+}
+
+/* 讓子項目自己的啟用/禁用開關依然可以點擊，這樣使用者才能看到它原始的狀態 */
+li.completion_prompt_manager_prompt.prompt-controlled-by-disabled-group .prompt-manager-toggle-action {
+    pointer-events: all !important;
+    cursor: not-allowed; /* 提示用戶這個開關雖然可見，但效果被覆蓋了 */
+}

@@ -2,6 +2,9 @@ import { config, state } from './state.js';
 import { buildCollapsibleGroups, toggleAllGroups } from './prompt-folding.js';
 import { createSettingsPanel } from './settings-ui.js';
 
+let promptManagerInstance = null;
+let isHooked = false;
+
 // 核心邏輯：雙層Observer架構。
 
 /**
@@ -152,6 +155,7 @@ function initialize(listContainer) {
     buildCollapsibleGroups(listContainer);
     createListContentObserver(listContainer);
     setupDragHandlers(listContainer);
+    initializePromptManagerHook();
 }
 
 /**
@@ -177,6 +181,123 @@ function createContainerWatcher() {
     });
 
     observer.observe(document.body, { childList: true, subtree: true });
+}
+
+/**
+ * 初始化 promptManager Hook
+ */
+function initializePromptManagerHook() {
+    // 如果已經 Hook 過，直接返回
+    if (isHooked) return;
+    
+    // 動態 import promptManager
+    import('../../../../scripts/openai.js').then(module => {
+        const { promptManager } = module;
+        
+        // 等待 promptManager 初始化完成
+        const checkReady = setInterval(() => {
+            if (promptManager && promptManager.serviceSettings) {
+                clearInterval(checkReady);
+                promptManagerInstance = promptManager;
+                hookPromptManager(promptManager);
+                isHooked = true;
+                console.log('[PF] promptManager hooked successfully');
+            }
+        }, 100);
+        
+        // 超時保護
+        setTimeout(() => clearInterval(checkReady), 5000);
+    }).catch(err => {
+        console.error('[PF] Failed to import promptManager:', err);
+    });
+}
+
+/**
+ * Hook PromptManager.getPromptCollection
+ * @param {Object} promptManager 
+ */
+function hookPromptManager(promptManager) {
+    // 保存原始方法
+    const originalGetPromptCollection = 
+        promptManager.getPromptCollection.bind(promptManager);
+    
+    // 覆蓋方法
+    promptManager.getPromptCollection = function(generationType) {
+        const collection = originalGetPromptCollection(generationType);
+        
+        // 如果功能未啟用，直接返回
+        if (!state.isEnabled) {
+            return collection;
+        }
+        
+        // 過濾被群組關閉的 prompt
+        return filterPromptsByGroupStatus(collection, promptManager);
+    };
+    console.log('[PF] Testing hook...');
+console.log('[PF] Original method type:', typeof originalGetPromptCollection);
+console.log('[PF] New method type:', typeof promptManager.getPromptCollection);
+}
+
+/**
+ * 根據群組狀態過濾 PromptCollection
+ * @param {Object} collection - PromptCollection 實例
+ * @param {Object} promptManager - PromptManager 實例
+ * @returns {Object} 過濾後的 PromptCollection
+ */
+function filterPromptsByGroupStatus(collection, promptManager) {
+    console.log('[PF] Filtering prompts by group status');
+    
+    // 更新群組標頭狀態
+    updateGroupHeaderStatus(promptManager);
+    
+    // 過濾 collection.collection 陣列
+    const filteredPrompts = collection.collection.filter(prompt => {
+        // 檢查這個 prompt 是否在某個關閉的群組中
+        for (const [groupKey, childIds] of Object.entries(state.groupHierarchy)) {
+            const isGroupDisabled = state.groupHeaderStatus[groupKey] === false;
+            const isChildOfGroup = childIds.includes(prompt.identifier);
+            
+            if (isGroupDisabled && isChildOfGroup) {
+                console.log(`[PF] Filtering out: ${prompt.identifier} (in disabled group: ${groupKey})`);
+                return false; // 過濾掉
+            }
+        }
+        
+        return true; // 保留
+    });
+    
+    // 重建 PromptCollection
+    // 直接修改 collection.collection 而不是創建新實例
+    collection.collection = filteredPrompts;
+
+    console.log('[PF] Filter called');
+console.log('[PF] groupHierarchy:', state.groupHierarchy);
+console.log('[PF] groupHeaderStatus:', state.groupHeaderStatus);
+console.log('[PF] Original prompts:', collection.collection.length);
+    
+    return collection;
+}
+
+/**
+ * 更新群組標頭的 enabled 狀態
+ * @param {Object} promptManager 
+ */
+function updateGroupHeaderStatus(promptManager) {
+    const character = promptManager.activeCharacter;
+    if (!character) return;
+    
+    const promptOrder = promptManager.getPromptOrderForCharacter(character);
+    
+    // 更新每個群組標頭的狀態
+    for (const groupKey of Object.keys(state.groupHierarchy)) {
+        // 從 groupKey 找到對應的 prompt identifier
+        // 在 buildCollapsibleGroups 時記錄 groupKey -> headerId 的映射
+        const headerId = state.groupKeyToHeaderId[groupKey];
+        if (!headerId) continue;
+        
+        const entry = promptOrder.find(e => e.identifier === headerId);
+        state.groupHeaderStatus[groupKey] = entry?.enabled ?? true;
+    }
 }
 
 // --- 程式進入點 ---
