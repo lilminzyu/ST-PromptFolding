@@ -1,14 +1,16 @@
-import { config, state } from './state.js';
+import { config, state, saveFeatureEnabled, debugLog } from './state.js';
 import { buildCollapsibleGroups, toggleAllGroups } from './prompt-folding.js';
 import { createSettingsPanel } from './settings-ui.js';
 
 let promptManagerInstance = null;
 let isHooked = false;
 
-// 核心邏輯：雙層Observer架構。
+// 核心邏輯：雙層Observer架構
+// 外層監控容器的出現，內層監控內容的變化
+// 這是必要的，因為 SillyTavern 會完全重繪 DOM
 
 /**
- * 監控器 #1: 監控列表「內部」的變化 (crud)
+ * 監控器 #1: 監控列表「內部」的變化 (CRUD)
  * @param {HTMLElement} listContainer 
  */
 function createListContentObserver(listContainer) {
@@ -23,7 +25,10 @@ function createListContentObserver(listContainer) {
         for (const mutation of mutations) {
             if (mutation.type === 'childList') {
                 const hasChangedNodes = (nodes) => Array.from(nodes).some(node => 
-                    node.nodeType === 1 && (node.matches(config.selectors.promptListItem) || node.querySelector(config.selectors.promptListItem))
+                    node.nodeType === 1 && (
+                        node.matches(config.selectors.promptListItem) || 
+                        node.querySelector(config.selectors.promptListItem)
+                    )
                 );
 
                 if (hasChangedNodes(mutation.addedNodes) || hasChangedNodes(mutation.removedNodes)) {
@@ -31,7 +36,9 @@ function createListContentObserver(listContainer) {
                     try {
                         buildCollapsibleGroups(listContainer);
                     } finally {
-                        setTimeout(() => observer.observe(listContainer, { childList: true, subtree: true }), 100);
+                        setTimeout(() => {
+                            observer.observe(listContainer, { childList: true, subtree: true });
+                        }, 100);
                     }
                     return;
                 }
@@ -58,6 +65,7 @@ function setupDragHandlers(listContainer) {
     listContainer.addEventListener('dragstart', (event) => {
         const draggedLi = event.target.closest(config.selectors.promptListItem);
         if (!draggedLi) return;
+        
         const observer = state.observers.get(listContainer);
         if (observer) {
             observer.disconnect();
@@ -89,50 +97,58 @@ function setupToggleButton(listContainer) {
     const buttonContainer = document.createElement('div');
     buttonContainer.className = 'mingyu-collapse-controls';
 
-    const expandAllBtn = document.createElement('button');
-    expandAllBtn.className = 'menu_button mingyu-expand-all';
-    expandAllBtn.title = '展開所有群組';
-    expandAllBtn.textContent = '⬇️';
-    expandAllBtn.addEventListener('click', () => toggleAllGroups(listContainer, true));
+    // 展開所有按鈕
+    const expandAllBtn = createButton({
+        className: 'menu_button mingyu-expand-all',
+        title: '展開所有群組',
+        text: '⬇️',
+        onClick: () => toggleAllGroups(listContainer, true)
+    });
 
-    const collapseAllBtn = document.createElement('button');
-    collapseAllBtn.className = 'menu_button mingyu-collapse-all';
-    collapseAllBtn.title = '收合所有群組';
-    collapseAllBtn.textContent = '⬆️';
-    collapseAllBtn.addEventListener('click', () => toggleAllGroups(listContainer, false));
+    // 收合所有按鈕
+    const collapseAllBtn = createButton({
+        className: 'menu_button mingyu-collapse-all',
+        title: '收合所有群組',
+        text: '⬆️',
+        onClick: () => toggleAllGroups(listContainer, false)
+    });
 
-    const settingsBtn = document.createElement('button');
-    settingsBtn.className = 'menu_button mingyu-settings-toggle';
-    settingsBtn.title = '分組設定';
-    settingsBtn.textContent = '⚙️';
-    settingsBtn.addEventListener('click', () => {
-        const settingsPanel = document.getElementById('prompt-folding-settings');
-        if (settingsPanel) {
-            const isVisible = settingsPanel.style.display !== 'none';
-            settingsPanel.style.display = isVisible ? 'none' : 'block';
-            settingsBtn.classList.toggle('active', !isVisible);
+    // 功能開關按鈕
+    const toggleBtn = createButton({
+        className: 'menu_button',
+        title: state.isEnabled ? '點擊停用' : '點擊啟用',
+        text: state.isEnabled ? '🟢' : '🔴',
+        onClick: () => {
+            state.isEnabled = !state.isEnabled;
+            saveFeatureEnabled();
+            toggleBtn.title = state.isEnabled ? '點擊停用' : '點擊啟用';
+            toggleBtn.textContent = state.isEnabled ? '🟢' : '🔴';
+            buildCollapsibleGroups(listContainer);
+            debugLog('Feature toggled:', state.isEnabled);
         }
     });
 
-    const toggleBtn = document.createElement('button');
-    toggleBtn.className = 'menu_button';
-    const updateBtnText = () => {
-        toggleBtn.title = state.isEnabled ? '點擊停用' : '點擊啟用';
-        toggleBtn.textContent = state.isEnabled ? '🟢' : '🔴';
-    };
-    toggleBtn.addEventListener('click', () => {
-        state.isEnabled = !state.isEnabled;
-        localStorage.setItem(config.storageKeys.featureEnabled, state.isEnabled);
-        updateBtnText();
-        buildCollapsibleGroups(listContainer);
+    // 設定按鈕
+    const settingsBtn = createButton({
+        className: 'menu_button mingyu-settings-toggle',
+        title: '分組設定',
+        text: '⚙️',
+        onClick: () => {
+            const settingsPanel = document.getElementById('prompt-folding-settings');
+            if (settingsPanel) {
+                const isVisible = settingsPanel.style.display !== 'none';
+                settingsPanel.style.display = isVisible ? 'none' : 'block';
+                settingsBtn.classList.toggle('active', !isVisible);
+            }
+        }
     });
-    updateBtnText();
 
     buttonContainer.appendChild(expandAllBtn);
     buttonContainer.appendChild(collapseAllBtn);
     buttonContainer.appendChild(toggleBtn);
     buttonContainer.appendChild(settingsBtn);
 
+    // 插入到 header 中
     const firstChild = header.firstElementChild;
     if (firstChild && firstChild.nextSibling) {
         header.insertBefore(buttonContainer, firstChild.nextSibling);
@@ -142,14 +158,30 @@ function setupToggleButton(listContainer) {
 }
 
 /**
+ * 創建按鈕輔助函數
+ * @param {object} options 
+ * @returns {HTMLButtonElement}
+ */
+function createButton({ className, title, text, onClick }) {
+    const button = document.createElement('button');
+    button.className = className;
+    button.title = title;
+    button.textContent = text;
+    button.addEventListener('click', onClick);
+    return button;
+}
+
+/**
  * 核心初始化函式
+ * 注意：每次都會重新創建 UI，這是必要的，因為 SillyTavern 會完全重繪 DOM
  * @param {HTMLElement} listContainer 
  */
 function initialize(listContainer) {
     const promptManager = listContainer.closest('#completion_prompt_manager');
     if (!promptManager) return;
 
-    // 每次都重新建立UI，以應對SillyTavern的完全重繪
+    debugLog('Initializing...');
+    
     createSettingsPanel(promptManager);
     setupToggleButton(listContainer);
     buildCollapsibleGroups(listContainer);
@@ -181,31 +213,28 @@ function createContainerWatcher() {
     });
 
     observer.observe(document.body, { childList: true, subtree: true });
+    debugLog('Container watcher started');
 }
 
 /**
  * 初始化 promptManager Hook
  */
 function initializePromptManagerHook() {
-    // 如果已經 Hook 過，直接返回
     if (isHooked) return;
     
-    // 動態 import promptManager
     import('../../../../scripts/openai.js').then(module => {
         const { promptManager } = module;
         
-        // 等待 promptManager 初始化完成
         const checkReady = setInterval(() => {
             if (promptManager && promptManager.serviceSettings) {
                 clearInterval(checkReady);
                 promptManagerInstance = promptManager;
                 hookPromptManager(promptManager);
                 isHooked = true;
-                console.log('[PF] promptManager hooked successfully');
+                debugLog('promptManager hooked successfully');
             }
         }, 100);
         
-        // 超時保護
         setTimeout(() => clearInterval(checkReady), 5000);
     }).catch(err => {
         console.error('[PF] Failed to import promptManager:', err);
@@ -217,25 +246,22 @@ function initializePromptManagerHook() {
  * @param {Object} promptManager 
  */
 function hookPromptManager(promptManager) {
-    // 保存原始方法
-    const originalGetPromptCollection = 
-        promptManager.getPromptCollection.bind(promptManager);
+    const originalGetPromptCollection = promptManager.getPromptCollection.bind(promptManager);
     
-    // 覆蓋方法
     promptManager.getPromptCollection = function(generationType) {
         const collection = originalGetPromptCollection(generationType);
         
-        // 如果功能未啟用，直接返回
         if (!state.isEnabled) {
             return collection;
         }
         
-        // 過濾被群組關閉的 prompt
         return filterPromptsByGroupStatus(collection, promptManager);
     };
-    console.log('[PF] Testing hook...');
-console.log('[PF] Original method type:', typeof originalGetPromptCollection);
-console.log('[PF] New method type:', typeof promptManager.getPromptCollection);
+    
+    debugLog('Hook installed', {
+        originalType: typeof originalGetPromptCollection,
+        newType: typeof promptManager.getPromptCollection
+    });
 }
 
 /**
@@ -245,35 +271,31 @@ console.log('[PF] New method type:', typeof promptManager.getPromptCollection);
  * @returns {Object} 過濾後的 PromptCollection
  */
 function filterPromptsByGroupStatus(collection, promptManager) {
-    console.log('[PF] Filtering prompts by group status');
+    debugLog('Filtering prompts by group status');
     
-    // 更新群組標頭狀態
     updateGroupHeaderStatus(promptManager);
     
-    // 過濾 collection.collection 陣列
     const filteredPrompts = collection.collection.filter(prompt => {
-        // 檢查這個 prompt 是否在某個關閉的群組中
         for (const [groupKey, childIds] of Object.entries(state.groupHierarchy)) {
             const isGroupDisabled = state.groupHeaderStatus[groupKey] === false;
             const isChildOfGroup = childIds.includes(prompt.identifier);
             
             if (isGroupDisabled && isChildOfGroup) {
-                console.log(`[PF] Filtering out: ${prompt.identifier} (in disabled group: ${groupKey})`);
-                return false; // 過濾掉
+                debugLog(`Filtering out: ${prompt.identifier} (in disabled group: ${groupKey})`);
+                return false;
             }
         }
-        
-        return true; // 保留
+        return true;
     });
     
-    // 重建 PromptCollection
-    // 直接修改 collection.collection 而不是創建新實例
     collection.collection = filteredPrompts;
-
-    console.log('[PF] Filter called');
-console.log('[PF] groupHierarchy:', state.groupHierarchy);
-console.log('[PF] groupHeaderStatus:', state.groupHeaderStatus);
-console.log('[PF] Original prompts:', collection.collection.length);
+    
+    debugLog('Filter results', {
+        groupHierarchy: state.groupHierarchy,
+        groupHeaderStatus: state.groupHeaderStatus,
+        originalCount: collection.collection.length,
+        filteredCount: filteredPrompts.length
+    });
     
     return collection;
 }
@@ -288,15 +310,11 @@ function updateGroupHeaderStatus(promptManager) {
     
     const promptOrder = promptManager.getPromptOrderForCharacter(character);
     
-    // 更新每個群組標頭的狀態
-    for (const groupKey of Object.keys(state.groupHierarchy)) {
-        // 從 groupKey 找到對應的 prompt identifier
-        // 在 buildCollapsibleGroups 時記錄 groupKey -> headerId 的映射
-        const headerId = state.groupKeyToHeaderId[groupKey];
+    for (const headerId of Object.keys(state.groupHierarchy)) {
         if (!headerId) continue;
         
         const entry = promptOrder.find(e => e.identifier === headerId);
-        state.groupHeaderStatus[groupKey] = entry?.enabled ?? true;
+        state.groupHeaderStatus[headerId] = entry?.enabled ?? true;
     }
 }
 

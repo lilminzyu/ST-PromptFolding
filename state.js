@@ -6,7 +6,7 @@ export const config = {
         promptList: '#completion_prompt_manager_list',
         promptListItem: 'li.completion_prompt_manager_prompt',
         promptLink: 'span.completion_prompt_manager_prompt_name',
-        promptAsterisk: '.fa-asterisk', // 標題列要隱藏的星號
+        promptAsterisk: '.fa-asterisk',
         listHeader: '.completion_prompt_manager_list_head',
     },
     // localStorage 的鍵值
@@ -16,12 +16,14 @@ export const config = {
         customDividers: 'mingyu_collapsible_customDividers',
         caseSensitive: 'mingyu_collapsible_caseSensitive',
         foldingMode: 'mingyu_collapsible_foldingMode',
+        debugMode: 'mingyu_collapsible_debugMode', // 控制調試輸出
     },
     // CSS class 名稱
     classNames: {
         group: 'mingyu-prompt-group',
         groupContent: 'mingyu-prompt-group-content',
-        isGroupHeader: 'is-group-header', // 加到作為標題的 li 元素上
+        isGroupHeader: 'is-group-header',
+        controlledByDisabledGroup: 'prompt-controlled-by-disabled-group',
     },
     // 預設的分組標示
     defaultDividers: ['=', '-']
@@ -31,38 +33,101 @@ export const config = {
 export let state = {
     openGroups: JSON.parse(localStorage.getItem(config.storageKeys.openStates) || '{}'),
     isEnabled: localStorage.getItem(config.storageKeys.featureEnabled) !== 'false',
-    isProcessing: false, // 防止重複執行的標記
-    observers: new WeakMap(), // 儲存每個 listContainer 的 observer
+    isProcessing: false,
+    observers: new WeakMap(),
     customDividers: JSON.parse(localStorage.getItem(config.storageKeys.customDividers) || 'null') || config.defaultDividers,
     caseSensitive: localStorage.getItem(config.storageKeys.caseSensitive) === 'true',
     foldingMode: localStorage.getItem(config.storageKeys.foldingMode) || 'standard',
-
+    debugMode: localStorage.getItem(config.storageKeys.debugMode) === 'true',
+    
+    // 群組層級關係和狀態
     groupHierarchy: {}, // { 'group-key': ['child-id-1', 'child-id-2'] }
     groupHeaderStatus: {}, // { 'group-key': true/false }
-    groupKeyToHeaderId: {}, // { 'groupKey': 'headerId' }
 };
 
-export let dividerRegex = buildDividerRegex();
+/**
+ * 條件式調試日誌
+ */
+export function debugLog(...args) {
+    if (state.debugMode) {
+        console.log('[PF]', ...args);
+    }
+}
 
 /**
- * 符號匹配
+ * 動態生成分隔符正則表達式
  * @returns {RegExp}
  */
-export function buildDividerRegex() {
+export function getDividerRegex() {
     const patterns = state.customDividers.map(pattern => {
         // 完全轉義所有特殊字元，當作普通字串處理
-        return pattern.replace(/[.*+?^${}()|[\\]/g, '\\$&');
+        return pattern.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     });
     const flags = state.caseSensitive ? '' : 'i';
     return new RegExp(`^(${patterns.join('|')})`, flags);
 }
 
 /**
- * 儲存自訂設定
+ * 檢查提示詞名稱是否只由符號組成
+ * @param {string} name 
+ * @returns {boolean}
+ */
+export function isSymbolsOnly(name) {
+    // \p{P} 匹配任何種類的標點符號
+    // \p{S} 匹配數學符號、貨幣符號、表情符號等
+    // \s  匹配空白字符
+    const symbolsOnlyRegex = /^[\s\p{P}\p{S}]+$/u;
+    return name.length > 0 && symbolsOnlyRegex.test(name);
+}
+
+/**
+ * 儲存自訂設定到 localStorage
  */
 export function saveCustomSettings() {
     localStorage.setItem(config.storageKeys.customDividers, JSON.stringify(state.customDividers));
     localStorage.setItem(config.storageKeys.caseSensitive, state.caseSensitive);
     localStorage.setItem(config.storageKeys.foldingMode, state.foldingMode);
-    dividerRegex = buildDividerRegex();
+}
+
+/**
+ * 儲存功能啟用狀態
+ */
+export function saveFeatureEnabled() {
+    localStorage.setItem(config.storageKeys.featureEnabled, state.isEnabled);
+}
+
+/**
+ * 儲存群組開合狀態
+ */
+export function saveOpenStates() {
+    localStorage.setItem(config.storageKeys.openStates, JSON.stringify(state.openGroups));
+}
+
+/**
+ * 重置群組狀態
+ */
+export function resetGroupState() {
+    state.groupHierarchy = {};
+    state.groupHeaderStatus = {};
+}
+
+/**
+ * 更新群組層級關係
+ * @param {string} groupKey 
+ * @param {string} childId 
+ */
+export function addChildToGroup(groupKey, childId) {
+    if (!state.groupHierarchy[groupKey]) {
+        state.groupHierarchy[groupKey] = [];
+    }
+    state.groupHierarchy[groupKey].push(childId);
+}
+
+/**
+ * 設置群組標頭狀態
+ * @param {string} groupKey 
+ * @param {boolean} isEnabled 
+ */
+export function setGroupHeaderStatus(groupKey, isEnabled) {
+    state.groupHeaderStatus[groupKey] = isEnabled;
 }

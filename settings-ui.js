@@ -3,97 +3,132 @@ import { buildCollapsibleGroups } from './prompt-folding.js';
 
 /**
  * 建立設定面板並插入到提示詞管理器中
- * @param {HTMLElement} listContainer
+ * @param {HTMLElement} promptManager
  */
-export async function createSettingsPanel(listContainer) {
-    const manager = document.getElementById('completion_prompt_manager');
-    if (!manager) {
+export async function createSettingsPanel(promptManager) {
+    if (!promptManager) {
         console.warn('[PF] completion_prompt_manager 未找到');
         return;
     }
 
+    // 避免重複創建
     if (document.getElementById('prompt-folding-settings')) {
         return;
     }
 
-    // 從 manifest.json 獲取 settings.html 的路徑
-    const response = await fetch('/scripts/extensions/third-party/ST-PromptFolding/settings.html');
-    if (!response.ok) {
-        console.error('[PF] 無法載入 settings.html');
-        return;
-    }
-    const settingsHtml = await response.text();
+    try {
+        const response = await fetch('/scripts/extensions/third-party/ST-PromptFolding/settings.html');
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}`);
+        }
+        const settingsHtml = await response.text();
 
-    const header = manager.querySelector('.completion_prompt_manager_header');
-    const listHead = manager.querySelector('.completion_prompt_manager_list_head');
+        // 尋找合適的插入位置
+        const header = promptManager.querySelector('.completion_prompt_manager_header');
+        const listHead = promptManager.querySelector('.completion_prompt_manager_list_head');
+        const list = promptManager.querySelector(config.selectors.promptList);
 
-    if (header) {
-        header.insertAdjacentHTML('afterend', settingsHtml);
-    } else if (listHead) {
-        listHead.insertAdjacentHTML('beforebegin', settingsHtml);
-    } else {
-        listContainer.insertAdjacentHTML('beforebegin', settingsHtml);
+        if (header) {
+            header.insertAdjacentHTML('afterend', settingsHtml);
+        } else if (listHead) {
+            listHead.insertAdjacentHTML('beforebegin', settingsHtml);
+        } else if (list) {
+            list.insertAdjacentHTML('beforebegin', settingsHtml);
+        } else {
+            throw new Error('無法找到合適的插入位置');
+        }
+        
+        initializeSettingsPanel();
+    } catch (err) {
+        console.error('[PF] 無法載入設定面板:', err);
     }
-    
-    initializeSettingsPanel();
 }
 
 /**
  * 初始化設定面板的事件監聽
  */
 function initializeSettingsPanel() {
-    const textArea = document.getElementById('prompt-folding-dividers');
-    const caseCheckbox = document.getElementById('prompt-folding-case-sensitive');
-    const applyButton = document.getElementById('prompt-folding-apply');
-    const resetButton = document.getElementById('prompt-folding-reset');
+    const elements = {
+        textArea: document.getElementById('prompt-folding-dividers'),
+        caseCheckbox: document.getElementById('prompt-folding-case-sensitive'),
+        applyButton: document.getElementById('prompt-folding-apply'),
+        resetButton: document.getElementById('prompt-folding-reset'),
+        standardRadio: document.getElementById('prompt-folding-mode-standard'),
+        sandwichRadio: document.getElementById('prompt-folding-mode-sandwich'),
+        modeRadios: document.getElementById('prompt-folding-mode-radios'),
+    };
 
-    if (!textArea || !caseCheckbox || !applyButton || !resetButton) {
+    // 檢查必要元素
+    if (!elements.textArea || !elements.caseCheckbox || !elements.applyButton || !elements.resetButton) {
         console.warn('[PF] 設定面板元素未找到');
         return;
     }
 
+    // 初始化表單值
+    initializeFormValues(elements);
+    
+    // 綁定事件
+    setupModeChangeListener(elements);
+    setupApplyButton(elements);
+    setupResetButton(elements);
+    
+    // 顯示版本資訊
+    displayVersionInfo();
+}
+
+/**
+ * 初始化表單值
+ * @param {object} elements 
+ */
+function initializeFormValues(elements) {
+    // 確保 customDividers 是陣列
     if (!Array.isArray(state.customDividers)) {
         state.customDividers = [...config.defaultDividers];
     }
 
-    textArea.value = state.customDividers.join('\n');
-    caseCheckbox.checked = state.caseSensitive;
+    elements.textArea.value = state.customDividers.join('\n');
+    elements.caseCheckbox.checked = state.caseSensitive;
 
-    const standardRadio = document.getElementById('prompt-folding-mode-standard');
-    const sandwichRadio = document.getElementById('prompt-folding-mode-sandwich');
-    if (standardRadio && sandwichRadio) {
+    // 設置模式單選框
+    if (elements.standardRadio && elements.sandwichRadio) {
         if (state.foldingMode === 'sandwich') {
-            sandwichRadio.checked = true;
+            elements.sandwichRadio.checked = true;
         } else {
-            standardRadio.checked = true;
-        }
-
-        // 為模式切換添加即時監聽
-        const modeRadios = document.getElementById('prompt-folding-mode-radios');
-        if (modeRadios) {
-            modeRadios.addEventListener('change', (event) => {
-                if (event.target.name === 'folding-mode') {
-                    state.foldingMode = event.target.value;
-                    saveCustomSettings();
-                    const listContainer = document.querySelector(config.selectors.promptList);
-                    if (listContainer) {
-                        buildCollapsibleGroups(listContainer);
-                    }
-                    toastr.success(`模式已切換為: ${state.foldingMode === 'standard' ? '標準模式' : '包覆模式'}`);
-                }
-            });
+            elements.standardRadio.checked = true;
         }
     }
+}
 
-    const closeSettingsPanel = () => {
-        const settingsPanel = document.getElementById('prompt-folding-settings');
-        const settingsBtn = document.querySelector('.mingyu-settings-toggle');
-        if (settingsPanel) settingsPanel.style.display = 'none';
-        if (settingsBtn) settingsBtn.classList.remove('active');
-    };
+/**
+ * 設置模式切換監聽器（即時生效）
+ * @param {object} elements 
+ */
+function setupModeChangeListener(elements) {
+    if (!elements.modeRadios) return;
 
-    applyButton.addEventListener('click', () => {
-        const newDividers = textArea.value
+    elements.modeRadios.addEventListener('change', (event) => {
+        if (event.target.name === 'folding-mode') {
+            state.foldingMode = event.target.value;
+            saveCustomSettings();
+            
+            const listContainer = document.querySelector(config.selectors.promptList);
+            if (listContainer) {
+                buildCollapsibleGroups(listContainer);
+            }
+            
+            const modeName = state.foldingMode === 'standard' ? '標準模式' : '包覆模式';
+            toastr.success(`模式已切換為: ${modeName}`);
+        }
+    });
+}
+
+/**
+ * 設置套用按鈕
+ * @param {object} elements 
+ */
+function setupApplyButton(elements) {
+    elements.applyButton.addEventListener('click', () => {
+        const newDividers = elements.textArea.value
             .split('\n')
             .map(line => line.trim())
             .filter(line => line.length > 0);
@@ -103,39 +138,71 @@ function initializeSettingsPanel() {
             return;
         }
 
+        // 更新狀態
         state.customDividers = newDividers;
-        state.caseSensitive = caseCheckbox.checked;
-
-        const selectedMode = document.querySelector('input[name="folding-mode"]:checked').value;
-        state.foldingMode = selectedMode || 'standard';
-
+        state.caseSensitive = elements.caseCheckbox.checked;
         saveCustomSettings();
 
+        // 重新分組
         const listContainer = document.querySelector(config.selectors.promptList);
-        if (listContainer) buildCollapsibleGroups(listContainer);
+        if (listContainer) {
+            buildCollapsibleGroups(listContainer);
+        }
 
         closeSettingsPanel();
         toastr.success('設定已套用並重新分組');
     });
+}
 
-    resetButton.addEventListener('click', () => {
+/**
+ * 設置重設按鈕
+ * @param {object} elements 
+ */
+function setupResetButton(elements) {
+    elements.resetButton.addEventListener('click', () => {
+        // 重設為預設值
         state.customDividers = [...config.defaultDividers];
         state.caseSensitive = false;
         state.foldingMode = 'standard';
         saveCustomSettings();
 
-        textArea.value = state.customDividers.join('\n');
-        caseCheckbox.checked = false;
-        if (standardRadio) standardRadio.checked = true;
+        // 更新表單
+        elements.textArea.value = state.customDividers.join('\n');
+        elements.caseCheckbox.checked = false;
+        if (elements.standardRadio) {
+            elements.standardRadio.checked = true;
+        }
 
+        // 重新分組
         const listContainer = document.querySelector(config.selectors.promptList);
-        if (listContainer) buildCollapsibleGroups(listContainer);
+        if (listContainer) {
+            buildCollapsibleGroups(listContainer);
+        }
 
         closeSettingsPanel();
         toastr.info('設定已重設為預設值');
     });
+}
 
-    // 顯示版本資訊
+/**
+ * 關閉設定面板
+ */
+function closeSettingsPanel() {
+    const settingsPanel = document.getElementById('prompt-folding-settings');
+    const settingsBtn = document.querySelector('.mingyu-settings-toggle');
+    
+    if (settingsPanel) {
+        settingsPanel.style.display = 'none';
+    }
+    if (settingsBtn) {
+        settingsBtn.classList.remove('active');
+    }
+}
+
+/**
+ * 顯示版本資訊
+ */
+function displayVersionInfo() {
     fetch('/scripts/extensions/third-party/ST-PromptFolding/manifest.json')
         .then(response => response.json())
         .then(manifest => {
@@ -144,5 +211,5 @@ function initializeSettingsPanel() {
                 versionInfoEl.textContent = `${manifest.display_name} v${manifest.version} © ${manifest.author}`;
             }
         })
-        .catch(err => console.error('[PF] 無法載入 manifest.json 獲取版本號:', err));
+        .catch(err => console.error('[PF] 無法載入版本資訊:', err));
 }
