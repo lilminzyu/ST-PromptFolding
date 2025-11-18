@@ -50,7 +50,6 @@ export async function createSettingsPanel(promptManager) {
 function initializeSettingsPanel() {
     const elements = {
         textArea: document.getElementById('prompt-folding-dividers'),
-        caseCheckbox: document.getElementById('prompt-folding-case-sensitive'),
         applyButton: document.getElementById('prompt-folding-apply'),
         resetButton: document.getElementById('prompt-folding-reset'),
         standardRadio: document.getElementById('prompt-folding-mode-standard'),
@@ -59,7 +58,7 @@ function initializeSettingsPanel() {
     };
 
     // 檢查必要元素
-    if (!elements.textArea || !elements.caseCheckbox || !elements.applyButton || !elements.resetButton) {
+    if (!elements.textArea || !elements.applyButton || !elements.resetButton) {
         console.warn('[PF] 設定面板元素未找到');
         return;
     }
@@ -87,7 +86,6 @@ function initializeFormValues(elements) {
     }
 
     elements.textArea.value = state.customDividers.join('\n');
-    elements.caseCheckbox.checked = state.caseSensitive;
 
     // 設置模式單選框
     if (elements.standardRadio && elements.sandwichRadio) {
@@ -140,7 +138,6 @@ function setupApplyButton(elements) {
 
         // 更新狀態
         state.customDividers = newDividers;
-        state.caseSensitive = elements.caseCheckbox.checked;
         saveCustomSettings();
 
         // 重新分組
@@ -160,15 +157,27 @@ function setupApplyButton(elements) {
  */
 function setupResetButton(elements) {
     elements.resetButton.addEventListener('click', () => {
+        // 顯示確認對話框
+        const confirmReset = confirm(
+            '確定要重設所有設定嗎？\n\n' +
+            '這將會：\n' +
+            '• 恢復預設分組標示符號 (=, -)\n' +
+            '• 切換回標準模式\n' +
+            '• 立即重新分組\n\n' +
+            '此操作無法復原！'
+        );
+
+        if (!confirmReset) {
+            return; // 使用者取消，不執行重設
+        }
+
         // 重設為預設值
         state.customDividers = [...config.defaultDividers];
-        state.caseSensitive = false;
         state.foldingMode = 'standard';
         saveCustomSettings();
 
         // 更新表單
         elements.textArea.value = state.customDividers.join('\n');
-        elements.caseCheckbox.checked = false;
         if (elements.standardRadio) {
             elements.standardRadio.checked = true;
         }

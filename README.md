@@ -85,7 +85,8 @@ Result:
 ```
 ==== Group A ====  [expandable]
   ├─ Prompt 1
-  └─ Prompt 2
+  ├─ Prompt 2
+  └─ ==== Group A ====
 Prompt 3  [ungrouped]
 ```
 
@@ -98,7 +99,7 @@ Prompt 3  [ungrouped]
 
 Default dividers: `=` and `-`
 
-Any prompt name starting with a configured divider will be treated as a group header. Additionally, prompts consisting only of symbols and punctuation are automatically recognized as headers.
+Any prompt name starting with a configured divider will be treated as a group header.
 
 #### Group Control Feature
 
@@ -147,6 +148,8 @@ localStorage.setItem('mingyu_collapsible_debugMode', 'false');
 
 ### Changelog
 
+- 2025.11.18 - `2.2.3` - Disabled groups no longer block editing and toggle switches; Removed symbol-only prompt grouping feature (bug fix); Added confirmation dialog for reset button; Removed case sensitivity option
+- 2025.11.17 - `2.2.2` - code refactoring
 - 2025.11.17 - `2.2.1` - Fixed pure symbol group name feature not working; Fixed confusion with duplicate group names; Added changelog
 - 2025.11.16 - `2.2.0` - Added feature: Group disable controls prompt sending
 - 2025.11.07 - `2.1.1` - Updated README.md; Fixed issue where clicking toggle switches caused unwanted collapse behavior

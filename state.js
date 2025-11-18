@@ -14,7 +14,6 @@ export const config = {
         openStates: 'mingyu_collapsible_openStates',
         featureEnabled: 'mingyu_collapsible_featureEnabled',
         customDividers: 'mingyu_collapsible_customDividers',
-        caseSensitive: 'mingyu_collapsible_caseSensitive',
         foldingMode: 'mingyu_collapsible_foldingMode',
         debugMode: 'mingyu_collapsible_debugMode', // 控制調試輸出
     },
@@ -36,7 +35,6 @@ export let state = {
     isProcessing: false,
     observers: new WeakMap(),
     customDividers: JSON.parse(localStorage.getItem(config.storageKeys.customDividers) || 'null') || config.defaultDividers,
-    caseSensitive: localStorage.getItem(config.storageKeys.caseSensitive) === 'true',
     foldingMode: localStorage.getItem(config.storageKeys.foldingMode) || 'standard',
     debugMode: localStorage.getItem(config.storageKeys.debugMode) === 'true',
     
@@ -63,21 +61,7 @@ export function getDividerRegex() {
         // 完全轉義所有特殊字元，當作普通字串處理
         return pattern.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     });
-    const flags = state.caseSensitive ? '' : 'i';
-    return new RegExp(`^(${patterns.join('|')})`, flags);
-}
-
-/**
- * 檢查提示詞名稱是否只由符號組成
- * @param {string} name 
- * @returns {boolean}
- */
-export function isSymbolsOnly(name) {
-    // \p{P} 匹配任何種類的標點符號
-    // \p{S} 匹配數學符號、貨幣符號、表情符號等
-    // \s  匹配空白字符
-    const symbolsOnlyRegex = /^[\s\p{P}\p{S}]+$/u;
-    return name.length > 0 && symbolsOnlyRegex.test(name);
+    return new RegExp(`^(${patterns.join('|')})`, 'i');
 }
 
 /**
@@ -85,7 +69,6 @@ export function isSymbolsOnly(name) {
  */
 export function saveCustomSettings() {
     localStorage.setItem(config.storageKeys.customDividers, JSON.stringify(state.customDividers));
-    localStorage.setItem(config.storageKeys.caseSensitive, state.caseSensitive);
     localStorage.setItem(config.storageKeys.foldingMode, state.foldingMode);
 }
 

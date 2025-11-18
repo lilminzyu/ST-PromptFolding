@@ -2,7 +2,6 @@ import {
     config, 
     state, 
     getDividerRegex, 
-    isSymbolsOnly,
     saveOpenStates,
     resetGroupState,
     addChildToGroup,
@@ -25,11 +24,6 @@ function getGroupHeaderInfo(promptItem) {
     const dividerRegex = getDividerRegex();
     const match = dividerRegex.exec(originalName);
     if (match) {
-        return createHeaderInfo(originalName, promptItem);
-    }
-
-    // 檢查是否只由符號組成
-    if (isSymbolsOnly(originalName)) {
         return createHeaderInfo(originalName, promptItem);
     }
 
@@ -139,7 +133,6 @@ function createGroupDetailsElement(headerInfo, headerItem, childItems = []) {
  * @param {HTMLElement} listContainer 
  */
 function buildStandardGroups(allItems, listContainer) {
-    let currentGroupContent = null;
     let currentGroupKey = null;
     let currentHeaderInfo = null;
     let currentHeaderItem = null;
