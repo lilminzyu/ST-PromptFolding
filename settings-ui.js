@@ -1,224 +1,119 @@
 import { state, saveCustomSettings, config } from './state.js';
 import { buildCollapsibleGroups } from './prompt-folding.js';
+import { callGenericPopup, POPUP_TYPE } from '../../../popup.js';
 
-/**
- * 建立設定面板並插入到提示詞管理器中
- * @param {HTMLElement} promptManager
- */
-export async function createSettingsPanel(promptManager) {
-    if (!promptManager) {
-        console.warn('[PF] completion_prompt_manager 未找到');
-        return;
-    }
-
-    // 避免重複創建
-    if (document.getElementById('prompt-folding-settings')) {
-        return;
-    }
+export async function createSettingsPanel(pmContainer) {
+    // 避免重複建立
+    if (document.getElementById('prompt-folding-settings')) return;
 
     try {
-        const response = await fetch('/scripts/extensions/third-party/ST-PromptFolding/settings.html');
-        if (!response.ok) {
-            throw new Error(`HTTP ${response.status}`);
-        }
-        const settingsHtml = await response.text();
+        const res = await fetch('/scripts/extensions/third-party/ST-PromptFolding/settings.html');
+        const html = await res.text();
 
-        // 尋找合適的插入位置
-        const header = promptManager.querySelector('.completion_prompt_manager_header');
-        const listHead = promptManager.querySelector('.completion_prompt_manager_list_head');
-        const list = promptManager.querySelector(config.selectors.promptList);
-
-        if (header) {
-            header.insertAdjacentHTML('afterend', settingsHtml);
-        } else if (listHead) {
-            listHead.insertAdjacentHTML('beforebegin', settingsHtml);
-        } else if (list) {
-            list.insertAdjacentHTML('beforebegin', settingsHtml);
-        } else {
-            throw new Error('無法找到合適的插入位置');
-        }
+        // 找個好位置插入
+        const header = pmContainer.querySelector('.completion_prompt_manager_header');
+        const target = header ? header.nextElementSibling : pmContainer.firstElementChild;
         
-        initializeSettingsPanel();
+        // 使用 insertAdjacentHTML
+        (header || pmContainer).insertAdjacentHTML(header ? 'afterend' : 'beforebegin', html);
+        
+        initLogic();
     } catch (err) {
-        console.error('[PF] 無法載入設定面板:', err);
+        console.error('[PF] Load settings UI failed:', err);
     }
 }
 
-/**
- * 初始化設定面板的事件監聽
- */
-function initializeSettingsPanel() {
-    const elements = {
-        textArea: document.getElementById('prompt-folding-dividers'),
-        applyButton: document.getElementById('prompt-folding-apply'),
-        resetButton: document.getElementById('prompt-folding-reset'),
-        standardRadio: document.getElementById('prompt-folding-mode-standard'),
-        sandwichRadio: document.getElementById('prompt-folding-mode-sandwich'),
-        modeRadios: document.getElementById('prompt-folding-mode-radios'),
+function initLogic() {
+    const els = {
+        textarea: document.getElementById('prompt-folding-dividers'),
+        applyBtn: document.getElementById('prompt-folding-apply'),
+        resetBtn: document.getElementById('prompt-folding-reset'),
+        radios: document.getElementsByName('folding-mode'),
+        panel: document.getElementById('prompt-folding-settings'),
+        toggleBtn: document.querySelector('.mingyu-settings-toggle')
     };
 
-    // 檢查必要元素
-    if (!elements.textArea || !elements.applyButton || !elements.resetButton) {
-        console.warn('[PF] 設定面板元素未找到');
-        return;
-    }
+    // 1. 填入當前設定
+    els.textarea.value = state.customDividers.join('\n');
+    const currentRadio = document.querySelector(`input[name="folding-mode"][value="${state.foldingMode}"]`);
+    if (currentRadio) currentRadio.checked = true;
 
-    // 初始化表單值
-    initializeFormValues(elements);
+    // 2. 綁定事件
+    els.applyBtn.onclick = () => handleApply(els);
+    els.resetBtn.onclick = () => handleReset(els);
     
-    // 綁定事件
-    setupModeChangeListener(elements);
-    setupApplyButton(elements);
-    setupResetButton(elements);
-    
-    // 顯示版本資訊
-    displayVersionInfo();
-}
-
-/**
- * 初始化表單值
- * @param {object} elements 
- */
-function initializeFormValues(elements) {
-    // 確保 customDividers 是陣列
-    if (!Array.isArray(state.customDividers)) {
-        state.customDividers = [...config.defaultDividers];
-    }
-
-    elements.textArea.value = state.customDividers.join('\n');
-
-    // 設置模式單選框
-    if (elements.standardRadio && elements.sandwichRadio) {
-        if (state.foldingMode === 'sandwich') {
-            elements.sandwichRadio.checked = true;
-        } else {
-            elements.standardRadio.checked = true;
-        }
-    }
-}
-
-/**
- * 設置模式切換監聽器（即時生效）
- * @param {object} elements 
- */
-function setupModeChangeListener(elements) {
-    if (!elements.modeRadios) return;
-
-    elements.modeRadios.addEventListener('change', (event) => {
-        if (event.target.name === 'folding-mode') {
-            state.foldingMode = event.target.value;
+    // 模式切換即時生效
+    document.getElementById('prompt-folding-mode-radios')?.addEventListener('change', (e) => {
+        if (e.target.name === 'folding-mode') {
+            state.foldingMode = e.target.value;
             saveCustomSettings();
-            
-            const listContainer = document.querySelector(config.selectors.promptList);
-            if (listContainer) {
-                buildCollapsibleGroups(listContainer);
-            }
-            
-            const modeName = state.foldingMode === 'standard' ? '標準模式' : '包覆模式';
-            toastr.success(`模式已切換為: ${modeName}`);
+            refreshList();
+            toastr.success(`模式切換: ${state.foldingMode}`);
         }
     });
+
+    loadMetaInfo();
 }
 
-/**
- * 設置套用按鈕
- * @param {object} elements 
- */
-function setupApplyButton(elements) {
-    elements.applyButton.addEventListener('click', () => {
-        const newDividers = elements.textArea.value
-            .split('\n')
-            .map(line => line.trim())
-            .filter(line => line.length > 0);
+function handleApply(els) {
+    const lines = els.textarea.value.split('\n').map(x => x.trim()).filter(x => x);
+    if (lines.length === 0) return toastr.warning('請至少輸入一個符號');
 
-        if (newDividers.length === 0) {
-            toastr.warning('請至少輸入一個分組標示符號');
-            return;
-        }
+    state.customDividers = lines;
+    // Radio value
+    const mode = document.querySelector('input[name="folding-mode"]:checked')?.value;
+    state.foldingMode = mode || 'standard';
 
-        // 更新狀態
-        state.customDividers = newDividers;
-        saveCustomSettings();
-
-        // 重新分組
-        const listContainer = document.querySelector(config.selectors.promptList);
-        if (listContainer) {
-            buildCollapsibleGroups(listContainer);
-        }
-
-        closeSettingsPanel();
-        toastr.success('設定已套用並重新分組');
-    });
-}
-
-/**
- * 設置重設按鈕
- * @param {object} elements 
- */
-function setupResetButton(elements) {
-    elements.resetButton.addEventListener('click', () => {
-        // 顯示確認對話框
-        const confirmReset = confirm(
-            '確定要重設所有設定嗎？\n\n' +
-            '這將會：\n' +
-            '• 恢復預設分組標示符號 (=, -)\n' +
-            '• 切換回標準模式\n' +
-            '• 立即重新分組\n\n' +
-            '此操作無法復原！'
-        );
-
-        if (!confirmReset) {
-            return; // 使用者取消，不執行重設
-        }
-
-        // 重設為預設值
-        state.customDividers = [...config.defaultDividers];
-        state.foldingMode = 'standard';
-        saveCustomSettings();
-
-        // 更新表單
-        elements.textArea.value = state.customDividers.join('\n');
-        if (elements.standardRadio) {
-            elements.standardRadio.checked = true;
-        }
-
-        // 重新分組
-        const listContainer = document.querySelector(config.selectors.promptList);
-        if (listContainer) {
-            buildCollapsibleGroups(listContainer);
-        }
-
-        closeSettingsPanel();
-        toastr.info('設定已重設為預設值');
-    });
-}
-
-/**
- * 關閉設定面板
- */
-function closeSettingsPanel() {
-    const settingsPanel = document.getElementById('prompt-folding-settings');
-    const settingsBtn = document.querySelector('.mingyu-settings-toggle');
+    saveCustomSettings();
+    refreshList();
     
-    if (settingsPanel) {
-        settingsPanel.style.display = 'none';
-    }
-    if (settingsBtn) {
-        settingsBtn.classList.remove('active');
-    }
+    // 關閉面板
+    els.panel.style.display = 'none';
+    els.toggleBtn?.classList.remove('active');
+    toastr.success('設定已儲存');
 }
 
-/**
- * 顯示版本資訊
- */
-function displayVersionInfo() {
+async function handleReset(els) {
+    const confirmed = await callGenericPopup(
+        `<div>確定重設所有設定？無法復原喔。</div>`, 
+        POPUP_TYPE.CONFIRM, 
+        '', 
+        { okButton: '重設', cancelButton: '取消' }
+    );
+
+    if (!confirmed) return;
+
+    state.customDividers = [...config.defaultDividers];
+    state.foldingMode = 'standard';
+    saveCustomSettings();
+
+    // UI 還原
+    els.textarea.value = state.customDividers.join('\n');
+    document.querySelector('input[value="standard"]').checked = true;
+    
+    refreshList();
+    toastr.info('已重設為預設值');
+}
+
+function refreshList() {
+    const list = document.querySelector(config.selectors.promptList);
+    if (list) buildCollapsibleGroups(list);
+}
+
+function loadMetaInfo() {
+    // 版本
     fetch('/scripts/extensions/third-party/ST-PromptFolding/manifest.json')
-        .then(response => response.json())
-        .then(manifest => {
-            const versionInfoEl = document.getElementById('prompt-folding-version-info');
-            if (versionInfoEl) {
-                versionInfoEl.textContent = `${manifest.display_name} v${manifest.version} © ${manifest.author}`;
+        .then(r => r.json())
+        .then(m => document.getElementById('prompt-folding-version-info').textContent = `v${m.version} © ${m.author}`);
+
+    // Log
+    fetch('/scripts/extensions/third-party/ST-PromptFolding/changelog.json')
+        .then(r => r.json())
+        .then(logs => {
+            const icon = document.getElementById('prompt-folding-changelog-icon');
+            if (icon) {
+                const text = logs.map(l => `[${l.date}] v${l.version}\n${l.changes.map(c=>`• ${c}`).join('\n')}`).join('\n\n');
+                icon.title = `更新日誌\n\n${text}`;
             }
-        })
-        .catch(err => console.error('[PF] 無法載入版本資訊:', err));
+        });
 }

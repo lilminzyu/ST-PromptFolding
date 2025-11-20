@@ -296,6 +296,4 @@ li.completion_prompt_manager_prompt[draggable="true"]:hover {
 li.completion_prompt_manager_prompt.prompt-controlled-by-disabled-group > span:not(.prompt_manager_prompt_tokens) {
     filter: grayscale(80%);
     opacity: 0.6;
-    /* 讓文字和大部分按鈕無法互動，因為它們被父層控制了 */ /* 有人反應想要可以互動, 因此不使用這行 */
-    /* pointer-events: none;  */
 }
