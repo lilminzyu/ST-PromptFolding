@@ -57,7 +57,7 @@
 
 ## 安裝方式
 
-1.  複製儲存庫連結：`https://github.com/iiimabbie/ST-PromptFolding`
+1.  複製儲存庫連結：`https://github.com/lilminzyu/ST-PromptFolding`
 2.  在 SillyTavern 介面中開啟【Extensions】分頁。
 3.  點擊右上角【Install Extension】。
 4.  貼上連結並安裝。

@@ -57,7 +57,7 @@ Requires a pair of identical headers. It groups the opening header, the closing 
 
 ## Installation
 
-1.  Copy the repository URL: `https://github.com/iiimabbie/ST-PromptFolding`
+1.  Copy the repository URL: `https://github.com/lilminzyu/ST-PromptFolding`
 2.  Open the **Extensions** tab in SillyTavern.
 3.  Click **Install Extension** (top-right).
 4.  Paste the URL and install.
