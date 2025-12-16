@@ -80,23 +80,17 @@ function createGroupDOM(headerItem, headerInfo, contentItems) {
     if (link) {
         // 設定名稱（保留 icon）
         setTextName(link, headerInfo.originalName);
-        // 綁定點擊：只點連結才開關
-        link.onclick = (e) => {
-            log('[Link Click] target:', e.target, 'currentTarget:', e.currentTarget);
-            log('[Link Click] preventDefault and stopPropagation');
+
+        // 在 link 上加監聽，在 capture 階段就阻止原生事件
+        link.addEventListener('click', (e) => {
+            log('[Link Click - Capture] target:', e.target, 'currentTarget:', e.currentTarget);
+            log('[Link Click - Capture] preventDefault and stopPropagation');
             e.preventDefault();
             e.stopPropagation();
             details.open = !details.open;
-            log('[Link Click] toggled details.open to:', details.open);
-        };
+            log('[Link Click - Capture] toggled details.open to:', details.open);
+        }, true); // capture 階段優先攔截，阻止原生處理器
     }
-
-    // 在 headerItem 上加監聽，在 capture 階段就阻止原生事件
-    headerItem.addEventListener('click', (e) => {
-        log('[HeaderItem Click - Capture] target:', e.target, 'currentTarget:', e.currentTarget);
-        log('[HeaderItem Click - Capture] stopPropagation to block native handlers');
-        e.stopPropagation(); // 阻止事件繼續傳播，防止觸發 SillyTavern 的原生處理器
-    }, true); // capture 階段優先攔截
 
     // 4. 建立 Summary (標題列)
     const summary = document.createElement('summary');
