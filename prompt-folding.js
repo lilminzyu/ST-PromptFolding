@@ -69,30 +69,41 @@ function createGroupDOM(headerItem, headerInfo, contentItems) {
 
     // 2. 標記標題 Item
     headerItem.classList.add(config.classNames.isGroupHeader);
-    const link = headerItem.querySelector(config.selectors.promptLink);
-    if (link) {
-        // 設定名稱（保留 icon）
-        setTextName(link, headerInfo.originalName);
-    }
 
-    // 3. 建立容器
+    // 3. 建立容器（必須先建立 details，才能在 link.onclick 中引用它）
     const details = document.createElement('details');
     details.className = config.classNames.group;
     details.open = state.openGroups[groupKey] !== false; // 預設開啟
     details.dataset.groupKey = groupKey;
 
+    const link = headerItem.querySelector(config.selectors.promptLink);
+    if (link) {
+        // 設定名稱（保留 icon）
+        setTextName(link, headerInfo.originalName);
+        // 綁定點擊：只點連結才開關
+        link.onclick = (e) => {
+            log('[Link Click] target:', e.target, 'currentTarget:', e.currentTarget);
+            log('[Link Click] preventDefault and stopPropagation');
+            e.preventDefault();
+            e.stopPropagation();
+            details.open = !details.open;
+            log('[Link Click] toggled details.open to:', details.open);
+        };
+    }
+
+    // 在 headerItem 上加監聽，在 capture 階段就阻止原生事件
+    headerItem.addEventListener('click', (e) => {
+        log('[HeaderItem Click - Capture] target:', e.target, 'currentTarget:', e.currentTarget);
+        log('[HeaderItem Click - Capture] stopPropagation to block native handlers');
+        e.stopPropagation(); // 阻止事件繼續傳播，防止觸發 SillyTavern 的原生處理器
+    }, true); // capture 階段優先攔截
+
     // 4. 建立 Summary (標題列)
     const summary = document.createElement('summary');
-    // 只在點擊非連結區域時才切換展開/收合
     summary.onclick = (e) => {
-        // 如果點擊的是 <a> 連結或其內部元素，保留原本功能
-        if (e.target.closest(config.selectors.promptLink)) {
-            return; // 不阻止，讓原本的點擊行為執行
-        }
-        // 否則切換展開/收合
+        log('[Summary Click] target:', e.target);
         e.preventDefault();
-        details.open = !details.open;
-    };
+    }; // 擋掉預設行為，由上面 link 控制
     summary.appendChild(headerItem);
     details.appendChild(summary);
 
