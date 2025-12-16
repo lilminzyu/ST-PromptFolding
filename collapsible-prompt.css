@@ -67,7 +67,11 @@
 /* 5. 標題內的星號圖示隱藏
 ------------------------------------------------------------ */
 .mingyu-prompt-group li.is-group-header .fa-asterisk {
-    display: none !important; /* 強制隱藏作為標題的提示詞的星號 */
+    visibility: hidden !important; /* 隱藏但保留在 DOM 中，不影響其他插件的選擇器 */
+    width: 0 !important;
+    height: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
 }
 
 /* 6. 群組內容區域 (<div>)
