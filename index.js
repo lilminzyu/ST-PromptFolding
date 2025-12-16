@@ -1,4 +1,4 @@
-import { config, state } from './state.js';
+import { config, state, log } from './state.js';
 import { buildCollapsibleGroups, toggleAllGroups } from './prompt-folding.js';
 import { createSettingsPanel } from './settings-ui.js';
 
@@ -55,7 +55,15 @@ function setupDragHandlers(listContainer) {
 function createBtn(icon, title, onClick, className = '') {
     const btn = document.createElement('button');
     btn.className = `menu_button ${className}`;
-    btn.textContent = icon;
+
+    if (icon.startsWith('fa-')) {
+        const i = document.createElement('i');
+        i.className = `fa-solid ${icon}`;
+        btn.appendChild(i);
+    } else {
+        btn.textContent = icon;
+    }
+
     btn.title = title;
     btn.onclick = onClick;
     return btn;
@@ -64,7 +72,7 @@ function createBtn(icon, title, onClick, className = '') {
 function setupToggleButton(listContainer) {
     const header = document.querySelector('.completion_prompt_manager_header');
     if (!header) return;
-    
+
     header.querySelector('.mingyu-collapse-controls')?.remove();
 
     const container = document.createElement('div');
@@ -72,18 +80,25 @@ function setupToggleButton(listContainer) {
 
     // 功能按鈕
     container.append(
-        createBtn('⬇️', '展開所有', () => toggleAllGroups(listContainer, true), 'mingyu-expand-all'),
-        createBtn('⬆️', '收合所有', () => toggleAllGroups(listContainer, false), 'mingyu-collapse-all')
+        createBtn('fa-expand', '展開所有', () => {
+            log('Expand all button clicked');
+            toggleAllGroups(listContainer, true);
+        }, 'mingyu-expand-all'),
+        createBtn('fa-compress', '收合所有', () => {
+            log('Collapse all button clicked');
+            toggleAllGroups(listContainer, false);
+        }, 'mingyu-collapse-all')
     );
 
     // 開關按鈕
     const toggleBtn = createBtn('', '', () => {
         state.isEnabled = !state.isEnabled;
         localStorage.setItem(config.storageKeys.featureEnabled, state.isEnabled);
+        log('Feature toggled:', state.isEnabled);
         updateToggleState();
         buildCollapsibleGroups(listContainer);
     });
-    
+
     const updateToggleState = () => {
         toggleBtn.textContent = state.isEnabled ? '🟢' : '🔴';
         toggleBtn.title = state.isEnabled ? '點擊停用' : '點擊啟用';
@@ -93,6 +108,7 @@ function setupToggleButton(listContainer) {
 
     // 設定按鈕
     const settingsBtn = createBtn('⚙️', '分組設定', () => {
+        log('Settings button clicked');
         const panel = document.getElementById('prompt-folding-settings');
         if (panel) {
             const isHidden = panel.style.display === 'none';
@@ -111,7 +127,7 @@ function setupToggleButton(listContainer) {
 
 function hookPromptManager(pm) {
     const originalGet = pm.getPromptCollection.bind(pm);
-    
+
     pm.getPromptCollection = function(type) {
         const collection = originalGet(type);
         if (!state.isEnabled) return collection;
@@ -135,7 +151,7 @@ function hookPromptManager(pm) {
 
         return collection;
     };
-    console.log('[PF] Hook installed.');
+    log('Hook installed.');
 }
 
 function updateGroupHeaderStatus(pm) {
@@ -156,14 +172,19 @@ function initialize(listContainer) {
     const pmWrapper = listContainer.closest('#completion_prompt_manager');
     if (!pmWrapper) return;
 
-    createSettingsPanel(pmWrapper);
+    log('Initializing Prompt Folding...');
+
+    createSettingsPanel(pmWrapper, listContainer);
     setupToggleButton(listContainer);
     buildCollapsibleGroups(listContainer);
     createListContentObserver(listContainer);
     setupDragHandlers(listContainer);
-    
+
+    log('Initialization completed');
+
     // 嘗試 Hook
     if (!isHooked) {
+        log('Attempting to install hook...');
         import('../../../../scripts/openai.js').then(m => {
             const check = setInterval(() => {
                 if (m.promptManager?.serviceSettings) {

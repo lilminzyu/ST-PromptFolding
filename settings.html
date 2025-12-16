@@ -1,28 +1,59 @@
 <div id="prompt-folding-settings" class="range-block marginBot10" style="display: none; width: 100%; box-sizing: border-box;">
     <div class="inline-drawer-content" style="display: block;">
-        <div style="position: relative;">
-            <h3>分組標示設定</h3>
-            <span class="mingyu-help-icon" title="輸入用於標識群組標題的符號或文字。&#10;&#10;此設定對「標準模式」和「包覆模式」皆有效。&#10;&#10;範例：&#10;• 輸入「=」會匹配「=」開頭的提示詞&#10;• 輸入「---」會匹配「---」開頭的提示詞">?</span>
-            <span id="prompt-folding-changelog-icon" class="mingyu-help-icon" style="right: 30px;" title="載入更新日誌中...">i</span>        </div>
-        <p class="settings-subtitle" style="font-size: 12px; opacity: 0.7; margin-top: -5px; margin-bottom: 10px;">此設定對所有摺疊模式皆有效。</p>
-        <label for="prompt-folding-dividers">
-            <span>分組標示符號（一行一個）</span>
-        </label>
-        <textarea id="prompt-folding-dividers" class="text_pole textarea_compact" rows="4" placeholder="=&#10;-"></textarea>
 
-        <h4 class="marginTop10">摺疊模式</h4>
-        <div id="prompt-folding-mode-radios" class="flex-container">
-            <label class="radio_label" title="標準模式：從一個標頭開始，摺疊其後的所有項目，直到遇到下一個標頭為止。">
-                <input type="radio" name="folding-mode" value="standard" id="prompt-folding-mode-standard">
-                <span>標準模式</span>
+        <div style="position: relative;">
+            <h3>摺疊模式設定</h3>
+            <span id="prompt-folding-changelog-icon" class="mingyu-help-icon" style="right: 0px;" title="載入更新日誌中...">i</span>
+        </div>
+
+        <div id="prompt-folding-mode-radios" class="flex-container flexFlowColumn" style="gap: 10px; align-items: flex-start; margin-bottom: 15px;">
+
+            <!-- 手動選擇模式（推薦） -->
+            <label class="radio_label" title="手動選擇模式：自己勾選要當資料夾的條目，最靈活" style="width: 100%; padding: 8px; background: rgba(74, 158, 255, 0.1); border-radius: 4px;">
+                <input type="radio" name="folding-mode" value="manual" id="prompt-folding-mode-manual">
+                <span style="font-weight: 500;">🆕 手動選擇模式 <small style="color: #4a9eff;">(推薦)</small></span>
             </label>
-            <label class="radio_label" title="包覆模式：尋找一對相同的標頭，並將這對標頭以及它們之間的所有項目摺疊成一個群組。">
+
+            <!-- 分隔線 -->
+            <div style="width: 100%; border-top: 1px dashed rgba(255,255,255,0.15); margin: 5px 0;"></div>
+            <small style="opacity: 0.5; font-size: 11px; margin-left: 4px;">⚠️ 以下為舊版模式，未來版本可能移除</small>
+
+            <!-- 標準模式 -->
+            <label class="radio_label" title="標準模式：從一個標頭開始，摺疊其後的所有項目" style="width: 100%; opacity: 0.7;">
+                <input type="radio" name="folding-mode" value="standard" id="prompt-folding-mode-standard">
+                <span>標準模式 <small>(需設定分隔符號)</small></span>
+            </label>
+
+            <!-- 包覆模式 -->
+            <label class="radio_label" title="包覆模式：尋找一對相同的標頭，包住中間內容" style="width: 100%; opacity: 0.7;">
                 <input type="radio" name="folding-mode" value="sandwich" id="prompt-folding-mode-sandwich">
-                <span>包覆模式</span>
+                <span>包覆模式 <small>(需設定分隔符號)</small></span>
             </label>
         </div>
 
-        <div class="flex-container justifyCenter marginTop10">
+        <!-- 分隔符號設定（只在 standard/sandwich 模式顯示） -->
+        <div id="divider-settings" style="margin-bottom: 15px;">
+            <label for="prompt-folding-dividers">
+                <span>分組標示符號（一行一個）</span>
+            </label>
+            <span class="mingyu-help-icon" style="position: absolute; margin-left: 5px; margin-top: -2px;" title="輸入用於標識群組標題的符號或文字。&#10;&#10;範例：&#10;• 輸入「=」會匹配「=」開頭的提示詞&#10;• 輸入「---」會匹配「---」開頭的提示詞">?</span>
+            <textarea id="prompt-folding-dividers" class="text_pole textarea_compact" rows="4" placeholder="=&#10;-" style="margin-top: 8px;"></textarea>
+        </div>
+
+        <!-- 手動選擇按鈕（只在 manual 模式顯示） -->
+        <div id="manual-mode-controls" style="display: none; margin-bottom: 15px;">
+            <div class="flex-container justifyCenter">
+                <div id="prompt-folding-start-select" class="menu_button menu_button_icon" style="background: rgba(74, 158, 255, 0.2);">
+                    <i class="fa-solid fa-hand-pointer"></i> 開始選擇資料夾
+                </div>
+            </div>
+            <small style="display: block; text-align: center; margin-top: 8px; opacity: 0.7; font-size: 11px;">
+                點擊後，每個條目旁會出現勾選框，勾選後按「完成選擇」即可
+            </small>
+        </div>
+
+        <!-- 套用/重設按鈕 -->
+        <div class="flex-container justifyCenter marginTop10" style="gap: 8px;">
             <div id="prompt-folding-apply" class="menu_button menu_button_icon">
                 <i class="fa-solid fa-check"></i> 套用
             </div>
@@ -30,6 +61,15 @@
                 <i class="fa-solid fa-rotate-left"></i> 重設
             </div>
         </div>
+
+        <!-- Debug 模式開關 (放最下面) -->
+        <div style="margin-top: 20px; padding-top: 15px; border-top: 1px solid rgba(255,255,255,0.1);">
+            <label class="checkbox_label" style="display: flex; align-items: center; cursor: pointer; opacity: 0.7;">
+                <input type="checkbox" id="prompt-folding-debug" style="margin-right: 8px;">
+                <small>Debug 模式（開發用）</small>
+            </label>
+        </div>
+
         <div id="prompt-folding-version-info"></div>
     </div>
 </div>

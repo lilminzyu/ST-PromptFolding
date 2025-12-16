@@ -297,3 +297,17 @@ li.completion_prompt_manager_prompt.prompt-controlled-by-disabled-group > span:n
     filter: grayscale(80%);
     opacity: 0.6;
 }
+
+/* 19. 手動選擇模式的勾選框樣式
+------------------------------------------------------------ */
+/* 當有勾選框時，調整 grid 佈局為 4 欄 */
+li.completion_prompt_manager_prompt:has(.mingyu-header-checkbox) {
+    grid-template-columns: 25px 4fr 80px 45px !important;
+}
+
+.mingyu-header-checkbox {
+    cursor: pointer;
+    margin: 0;
+    justify-self: center; /* 在自己的欄位裡置中 */
+    align-self: center;
+}
