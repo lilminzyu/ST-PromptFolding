@@ -73,12 +73,6 @@ function createGroupDOM(headerItem, headerInfo, contentItems) {
     if (link) {
         // 設定名稱（保留 icon）
         setTextName(link, headerInfo.originalName);
-        // 綁定點擊：只點文字才開關
-        link.onclick = (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            details.open = !details.open;
-        };
     }
 
     // 3. 建立容器
@@ -89,7 +83,16 @@ function createGroupDOM(headerItem, headerInfo, contentItems) {
 
     // 4. 建立 Summary (標題列)
     const summary = document.createElement('summary');
-    summary.onclick = (e) => e.preventDefault(); // 擋掉預設行為，由上面 link 控制
+    // 只在點擊非連結區域時才切換展開/收合
+    summary.onclick = (e) => {
+        // 如果點擊的是 <a> 連結或其內部元素，保留原本功能
+        if (e.target.closest(config.selectors.promptLink)) {
+            return; // 不阻止，讓原本的點擊行為執行
+        }
+        // 否則切換展開/收合
+        e.preventDefault();
+        details.open = !details.open;
+    };
     summary.appendChild(headerItem);
     details.appendChild(summary);
 
