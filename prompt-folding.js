@@ -1,4 +1,4 @@
-import { config, state, dividerRegex, log } from './state.js';
+import { config, state, dividerRegex, log, getStorageKey } from './state.js';
 
 /**
  * 從 <a> 標籤中提取純文字名稱（不含 icon）
@@ -38,12 +38,19 @@ function getGroupHeaderInfo(promptItem) {
 
   const itemId = promptItem.dataset.pmIdentifier;
 
-  // 從 Map 取得原始名稱，如果沒有就抓一次存起來
-  let originalName = state.originalNames.get(itemId);
-  if (!originalName) {
-    originalName = extractTextName(link);
-    state.originalNames.set(itemId, originalName);
+  // 每次都重新讀取名稱（確保顯示最新的名稱）
+  const currentName = extractTextName(link);
+
+  // 檢查緩存中的名稱是否已過時
+  const cachedName = state.originalNames.get(itemId);
+  if (cachedName !== currentName) {
+    log('Name changed for', itemId, ':', cachedName, '->', currentName);
+    state.originalNames.set(itemId, currentName);
+    // 只存 originalNames，不要覆蓋其他設定
+    localStorage.setItem(getStorageKey(config.storageKeys.originalNames), JSON.stringify([...state.originalNames]));
   }
+
+  const originalName = currentName;
 
   const createInfo = (name) => ({ originalName: name, stableKey: itemId });
 
@@ -78,8 +85,10 @@ function createGroupDOM(headerItem, headerInfo, contentItems) {
 
     const link = headerItem.querySelector(config.selectors.promptLink);
     if (link) {
+        // 重新讀取最新名稱（不使用 headerInfo 中可能過時的名稱）
+        const latestName = extractTextName(link);
         // 設定名稱（保留 icon）
-        setTextName(link, headerInfo.originalName);
+        setTextName(link, latestName);
 
         // 在 link 上加監聽，在 capture 階段就阻止原生事件
         link.addEventListener('click', (e) => {
@@ -110,7 +119,7 @@ function createGroupDOM(headerItem, headerInfo, contentItems) {
     // 6. 監聽開關狀態
     details.ontoggle = () => {
         state.openGroups[groupKey] = details.open;
-        localStorage.setItem(config.storageKeys.openStates, JSON.stringify(state.openGroups));
+        localStorage.setItem(getStorageKey(config.storageKeys.openStates), JSON.stringify(state.openGroups));
     };
 
     return details;
@@ -121,7 +130,7 @@ function createGroupDOM(headerItem, headerInfo, contentItems) {
  */
 export function buildCollapsibleGroups(listContainer) {
   // 強制同步最新的開關狀態
-  state.openGroups = JSON.parse(localStorage.getItem(config.storageKeys.openStates) || '{}');
+  state.openGroups = JSON.parse(localStorage.getItem(getStorageKey(config.storageKeys.openStates)) || '{}');
 
   log('Building collapsible groups, mode:', state.foldingMode);
 
@@ -134,16 +143,19 @@ export function buildCollapsibleGroups(listContainer) {
 
     allItems.forEach(item => {
       item.classList.remove(config.classNames.isGroupHeader);
-      // 還原名稱（從 Map 取得原始名稱）
+      // 讀取當前實際名稱（不要用舊緩存）
       const itemId = item.dataset.pmIdentifier;
-      const originalName = state.originalNames.get(itemId);
-      if (originalName) {
-        const link = item.querySelector(config.selectors.promptLink);
-        if (link) {
-          setTextName(link, originalName);
-        }
+      const link = item.querySelector(config.selectors.promptLink);
+      if (link && itemId) {
+        const currentName = extractTextName(link);
+        // 更新緩存為當前名稱
+        state.originalNames.set(itemId, currentName);
+        // 不需要 setTextName，因為已經是當前名稱了
       }
     });
+
+    // 保存更新後的名稱緩存（只存 originalNames，不要覆蓋其他設定）
+    localStorage.setItem(getStorageKey(config.storageKeys.originalNames), JSON.stringify([...state.originalNames]));
 
     // 2. 清空並重置狀態
     listContainer.innerHTML = '';

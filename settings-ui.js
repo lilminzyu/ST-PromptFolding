@@ -1,4 +1,4 @@
-import { state, saveCustomSettings, config, log } from './state.js';
+import { state, saveCustomSettings, config, log, reloadSettings } from './state.js';
 import { buildCollapsibleGroups } from './prompt-folding.js';
 import { callGenericPopup, POPUP_TYPE } from '../../../popup.js';
 
@@ -29,6 +29,14 @@ export async function createSettingsPanel(pmContainer, listContainer) {
 }
 
 function initLogic() {
+    // 先重新載入當前 preset 的設定，確保 state 是最新的
+    reloadSettings();
+
+    // 重新渲染列表，確保顯示當前 preset 的分組
+    if (listContainerRef) {
+        buildCollapsibleGroups(listContainerRef);
+    }
+
     const els = {
         textarea: document.getElementById('prompt-folding-dividers'),
         applyBtn: document.getElementById('prompt-folding-apply'),
@@ -42,7 +50,7 @@ function initLogic() {
         startSelectBtn: document.getElementById('prompt-folding-start-select'),
     };
 
-    // 1. 填入當前設定
+    // 1. 填入當前設定（使用剛剛重新載入的 state）
     els.textarea.value = state.customDividers.join('\n');
     els.debugCheckbox.checked = state.debugMode;
 
