@@ -1,8 +1,7 @@
-import { config, state, log } from './state.js';
+import { config, state, log, getStorageKey } from './state.js';
 import { buildCollapsibleGroups, toggleAllGroups } from './prompt-folding.js';
 import { createSettingsPanel } from './settings-ui.js';
 
-let promptManagerInstance = null;
 let isHooked = false;
 
 // --- 1. 觀察者邏輯 ---
@@ -14,22 +13,35 @@ function createListContentObserver(listContainer) {
     const observer = new MutationObserver((mutations) => {
         if (state.isProcessing) return;
 
-        // 檢查是否有相關節點變動
         const isPromptNode = (n) => n.nodeType === 1 && (n.matches(config.selectors.promptListItem) || n.querySelector(config.selectors.promptListItem));
-        
-        const shouldRebuild = mutations.some(m => 
-            m.type === 'childList' && (Array.from(m.addedNodes).some(isPromptNode) || Array.from(m.removedNodes).some(isPromptNode))
-        );
+
+        const shouldRebuild = mutations.some(m => {
+            // childList: 新增/刪除節點
+            if (m.type === 'childList' && (Array.from(m.addedNodes).some(isPromptNode) || Array.from(m.removedNodes).some(isPromptNode))) {
+                log('Detected childList change, rebuilding');
+                return true;
+            }
+            // characterData: 文字內容變更（條目名稱改了）
+            // 注意：不需要刪除緩存，buildCollapsibleGroups 會自動更新
+            if (m.type === 'characterData') {
+                const target = m.target.parentElement;
+                if (target && target.matches(config.selectors.promptLink)) {
+                    log('Prompt name changed, rebuilding');
+                    return true;
+                }
+            }
+            return false;
+        });
 
         if (shouldRebuild) {
             observer.disconnect();
             buildCollapsibleGroups(listContainer);
             // 稍微延遲後重新掛載，避免連續觸發
-            setTimeout(() => observer.observe(listContainer, { childList: true, subtree: true }), 100);
+            setTimeout(() => observer.observe(listContainer, { childList: true, subtree: true, characterData: true }), 100);
         }
     });
 
-    observer.observe(listContainer, { childList: true, subtree: true });
+    observer.observe(listContainer, { childList: true, subtree: true, characterData: true });
     state.observers.set(listContainer, observer);
 }
 
@@ -44,10 +56,11 @@ function setupDragHandlers(listContainer) {
     listContainer.addEventListener('dragend', () => {
         setTimeout(() => {
             buildCollapsibleGroups(listContainer);
-            state.observers.get(listContainer)?.observe(listContainer, { childList: true, subtree: true });
+            state.observers.get(listContainer)?.observe(listContainer, { childList: true, subtree: true, characterData: true });
         }, 150);
     });
 }
+
 
 // --- 2. UI 按鈕邏輯 ---
 
@@ -93,7 +106,7 @@ function setupToggleButton(listContainer) {
     // 開關按鈕
     const toggleBtn = createBtn('', '', () => {
         state.isEnabled = !state.isEnabled;
-        localStorage.setItem(config.storageKeys.featureEnabled, state.isEnabled);
+        localStorage.setItem(getStorageKey(config.storageKeys.featureEnabled), state.isEnabled);
         log('Feature toggled:', state.isEnabled);
         updateToggleState();
         buildCollapsibleGroups(listContainer);
@@ -132,19 +145,18 @@ function hookPromptManager(pm) {
         const collection = originalGet(type);
         if (!state.isEnabled) return collection;
 
-        // 1. 更新 Header 狀態 (這步很快)
+        // 更新 Header 狀態並過濾被禁用的子項
         updateGroupHeaderStatus(pm);
 
-        // 2. 建立「被禁用 ID」的 Set (Lookup O(1))
+        // 建立被禁用 ID 的 Set (O(1) lookup)
         const disabledIds = new Set();
         for (const [groupKey, childIds] of Object.entries(state.groupHierarchy)) {
-            // 如果這個群組被關閉 (false)，把它的孩子都加入黑名單
             if (state.groupHeaderStatus[groupKey] === false) {
                 childIds.forEach(id => disabledIds.add(id));
             }
         }
 
-        // 3. 過濾
+        // 過濾
         if (disabledIds.size > 0) {
             collection.collection = collection.collection.filter(p => !disabledIds.has(p.identifier));
         }
@@ -189,12 +201,11 @@ function initialize(listContainer) {
             const check = setInterval(() => {
                 if (m.promptManager?.serviceSettings) {
                     clearInterval(check);
-                    promptManagerInstance = m.promptManager;
                     hookPromptManager(m.promptManager);
                     isHooked = true;
                 }
             }, 100);
-            setTimeout(() => clearInterval(check), 5000); // 5秒超時
+            setTimeout(() => clearInterval(check), 5000);
         });
     }
 }
