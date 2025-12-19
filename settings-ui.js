@@ -1,4 +1,4 @@
-import { state, saveCustomSettings, config, log, reloadSettings } from './state.js';
+import { state, saveCustomSettings, config, log, reloadSettings, getAllPresetNames, exportConfigFromPreset, importConfigToCurrentPreset, getCurrentPresetName } from './state.js';
 import { buildCollapsibleGroups } from './prompt-folding.js';
 import { callGenericPopup, POPUP_TYPE } from '../../../popup.js';
 
@@ -48,6 +48,8 @@ function initLogic() {
         dividerSettings: document.getElementById('divider-settings'),
         manualControls: document.getElementById('manual-mode-controls'),
         startSelectBtn: document.getElementById('prompt-folding-start-select'),
+        copyFromPresetSelect: document.getElementById('prompt-folding-copy-from-preset'),
+        copyConfigBtn: document.getElementById('prompt-folding-copy-config-btn'),
     };
 
     // 1. 填入當前設定（使用剛剛重新載入的 state）
@@ -87,6 +89,12 @@ function initLogic() {
 
     // 6. 開始選擇按鈕（手動模式）
     els.startSelectBtn.onclick = () => startManualSelection();
+
+    // 7. 載入可用的 preset 列表
+    loadAvailablePresets(els.copyFromPresetSelect);
+
+    // 8. 複製配置按鈕
+    els.copyConfigBtn.onclick = () => handleCopyConfig(els);
 
     loadMetaInfo();
 }
@@ -230,6 +238,108 @@ function finishManualSelection() {
     refreshList();
 
     toastr.success(`已選擇 ${state.manualHeaders.size} 個資料夾`);
+}
+
+// 載入可用的 preset 列表
+function loadAvailablePresets(selectElement) {
+    const presets = getAllPresetNames();
+    const currentPreset = getCurrentPresetName();
+
+    selectElement.innerHTML = '';
+
+    if (presets.length === 0) {
+        selectElement.innerHTML = '<option value="">（無其他 Preset）</option>';
+        return;
+    }
+
+    // 過濾掉當前 preset
+    const otherPresets = presets.filter(p => p !== currentPreset);
+
+    if (otherPresets.length === 0) {
+        selectElement.innerHTML = '<option value="">（無其他 Preset）</option>';
+        return;
+    }
+
+    // 加入選項
+    selectElement.innerHTML = '<option value="">選擇要複製的 Preset</option>';
+    otherPresets.forEach(preset => {
+        const option = document.createElement('option');
+        option.value = preset;
+        option.textContent = preset;
+        selectElement.appendChild(option);
+    });
+}
+
+// 處理複製配置
+async function handleCopyConfig(els) {
+    const sourcePreset = els.copyFromPresetSelect.value;
+
+    if (!sourcePreset) {
+        toastr.warning('請先選擇要複製的 Preset');
+        return;
+    }
+
+    const confirmed = await callGenericPopup(
+        `<div>確定要從「${sourcePreset}」複製配置到當前 Preset 嗎？<br><br>` +
+        `會複製：<br>` +
+        `• 摺疊模式<br>` +
+        `• 分組符號設定<br>` +
+        `• 手動選擇的資料夾<br><br>` +
+        `<small style="opacity: 0.7;">（會透過名稱自動匹配條目）</small></div>`,
+        POPUP_TYPE.CONFIRM,
+        '',
+        { okButton: '複製', cancelButton: '取消' }
+    );
+
+    if (!confirmed) return;
+
+    try {
+        log('Copying config from', sourcePreset);
+
+        // 1. 匯出來源 preset 的配置
+        const configData = exportConfigFromPreset(sourcePreset);
+
+        // 2. 取得當前列表中的所有項目
+        if (!listContainerRef) {
+            toastr.error('找不到提示詞列表');
+            return;
+        }
+        const allItems = Array.from(listContainerRef.querySelectorAll(config.selectors.promptListItem));
+
+        // 3. 匯入配置（智能名稱匹配）
+        const matchResults = importConfigToCurrentPreset(configData, allItems);
+
+        // 4. 更新 UI
+        els.textarea.value = state.customDividers.join('\n');
+        els.debugCheckbox.checked = state.debugMode;
+        const currentRadio = document.querySelector(`input[name="folding-mode"][value="${state.foldingMode}"]`);
+        if (currentRadio) currentRadio.checked = true;
+        updateModeUI();
+
+        // 5. 重新渲染列表
+        refreshList();
+
+        // 6. 顯示結果
+        const totalHeaders = (configData.manualHeaders || []).length;
+        const matched = matchResults.byName + matchResults.byUuid;
+        const failed = matchResults.failed.length;
+
+        let message = `配置複製完成！\n\n`;
+        message += `• 透過名稱匹配：${matchResults.byName} 個\n`;
+        if (matchResults.byUuid > 0) {
+            message += `• 透過 UUID 匹配：${matchResults.byUuid} 個\n`;
+        }
+        if (failed > 0) {
+            message += `• 無法匹配：${failed} 個\n`;
+            message += `\n未匹配的條目：\n${matchResults.failed.slice(0, 5).join(', ')}${failed > 5 ? '...' : ''}`;
+        }
+
+        toastr.success(message, '複製成功', { timeOut: 5000 });
+
+    } catch (err) {
+        console.error('[PF] Copy config failed:', err);
+        toastr.error('複製配置時發生錯誤：' + err.message);
+    }
 }
 
 function loadMetaInfo() {

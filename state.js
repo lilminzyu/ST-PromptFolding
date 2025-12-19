@@ -124,3 +124,107 @@ export function reloadSettings() {
 
     dividerRegex = buildDividerRegex();
 }
+
+// 獲取所有可用的 preset 名稱
+export function getAllPresetNames() {
+    const presets = new Set();
+    const prefix = config.storagePrefix;
+
+    // 掃描 localStorage 中所有的 key
+    for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && key.startsWith(prefix)) {
+            // 解析出 preset 名稱
+            // 格式: mingyu_collapsible_{presetName}_{settingKey}
+            const match = key.match(new RegExp(`^${prefix}([^_]+)_`));
+            if (match && match[1]) {
+                presets.add(match[1]);
+            }
+        }
+    }
+
+    return Array.from(presets).sort();
+}
+
+// 從指定 preset 匯出配置（含名稱對照）
+export function exportConfigFromPreset(presetName) {
+    const getKey = (key) => `${config.storagePrefix}${presetName}_${key}`;
+
+    const manualHeadersArray = JSON.parse(localStorage.getItem(getKey(config.storageKeys.manualHeaders)) || '[]');
+    const originalNamesMap = new Map(JSON.parse(localStorage.getItem(getKey(config.storageKeys.originalNames)) || '[]'));
+
+    // 將 manualHeaders 轉換為帶名稱的格式
+    const manualHeadersWithNames = manualHeadersArray.map(uuid => ({
+        uuid: uuid,
+        name: originalNamesMap.get(uuid) || ''
+    }));
+
+    return {
+        version: '2.4',
+        sourcePreset: presetName,
+        foldingMode: localStorage.getItem(getKey(config.storageKeys.foldingMode)) || 'manual',
+        customDividers: JSON.parse(localStorage.getItem(getKey(config.storageKeys.customDividers)) || 'null') || config.defaultDividers,
+        debugMode: localStorage.getItem(getKey(config.storageKeys.debugMode)) === 'true',
+        manualHeaders: manualHeadersWithNames
+    };
+}
+
+// 匯入配置到當前 preset（智能名稱匹配）
+export function importConfigToCurrentPreset(configData, currentPromptItems) {
+    log('Importing config from', configData.sourcePreset, 'to', getCurrentPresetName());
+
+    // 1. 先匯入簡單的設定
+    state.foldingMode = configData.foldingMode || 'manual';
+    state.customDividers = configData.customDividers || config.defaultDividers;
+    state.debugMode = configData.debugMode || false;
+
+    // 2. 建立當前 preset 的名稱 -> UUID 對照表
+    const nameToUuid = new Map();
+    currentPromptItems.forEach(item => {
+        const uuid = item.dataset.pmIdentifier;
+        const name = state.originalNames.get(uuid);
+        if (uuid && name) {
+            nameToUuid.set(name, uuid);
+        }
+    });
+
+    // 3. 智能匹配 manualHeaders
+    const newManualHeaders = new Set();
+    const matchResults = {
+        byName: 0,
+        byUuid: 0,
+        failed: []
+    };
+
+    (configData.manualHeaders || []).forEach(header => {
+        const { uuid: oldUuid, name } = header;
+
+        // 優先用名稱匹配
+        if (name && nameToUuid.has(name)) {
+            const newUuid = nameToUuid.get(name);
+            newManualHeaders.add(newUuid);
+            matchResults.byName++;
+            log(`Matched by name: "${name}" -> ${newUuid}`);
+        }
+        // 回退：嘗試 UUID 匹配（適用於同一個 preset 的情況）
+        else if (oldUuid && currentPromptItems.some(item => item.dataset.pmIdentifier === oldUuid)) {
+            newManualHeaders.add(oldUuid);
+            matchResults.byUuid++;
+            log(`Matched by UUID: ${oldUuid}`);
+        }
+        // 都匹配不到
+        else {
+            matchResults.failed.push(name || oldUuid);
+            log(`Failed to match: "${name}" (${oldUuid})`);
+        }
+    });
+
+    state.manualHeaders = newManualHeaders;
+
+    // 4. 儲存設定
+    saveCustomSettings();
+    dividerRegex = buildDividerRegex();
+
+    log('Import completed:', matchResults);
+    return matchResults;
+}
