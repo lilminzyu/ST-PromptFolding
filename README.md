@@ -13,6 +13,7 @@ An extension that organizes your SillyTavern Prompt Manager into clean, collapsi
 - **Group Control Logic**:
   - **Fold/Unfold**: Click the header text to toggle visibility.
   - **Enable/Disable**: **(New in v2.2+)** Disabling a group header prompt will automatically **filter out all prompts inside that group**. They will not be sent to the AI. This allows for quick context switching.
+- **Cross-Preset Config Copy** **(New in v2.4+)**: Copy folding configurations from other Presets with smart name matching, making it easy to migrate settings when Preset authors update their presets.
 - **Three Folding Modes**: Supports "Manual Selection" (recommended), "Standard Mode", and "Sandwich Mode" to suit your organization style.
 - **Batch Actions**: Expand All / Collapse All with a single click.
 - **Customizable**: Define your own header markers via settings (for Standard/Sandwich modes).
@@ -71,6 +72,13 @@ Requires a pair of identical headers. It groups the opening header, the closing 
       - `⬇️` / `⬆️`: Expand or Collapse all groups.
       - `🔴` / `🟢`: Toggle the extension functionality on/off (does not delete prompts, just removes grouping).
       - `⚙️`: Open settings to switch modes, customize dividers, or toggle debug mode.
+
+4.  **Cross-Preset Config Copy** **(New in v2.4+)**:
+      - Open settings panel (⚙️ button)
+      - In the "Copy Config from Other Preset" section, select a source Preset
+      - Click the "Copy" button
+      - The system will automatically match prompts by name and apply the folding configuration to your current Preset
+      - **Use case**: When a Preset author updates their preset (e.g., v1.0 to v2.0), UUIDs change but prompt names stay the same - you can quickly migrate your folding settings
 
 ### Legacy Modes (Standard/Sandwich)
 
