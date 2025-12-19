@@ -2,8 +2,8 @@
     <div class="inline-drawer-content" style="display: block;">
 
         <div style="position: relative;">
-            <h3>摺疊模式設定</h3>
-            <span id="prompt-folding-changelog-icon" class="mingyu-help-icon" style="right: 0px;" title="載入更新日誌中...">i</span>
+            <h3 style="margin: 0;">摺疊模式設定</h3>
+            <span id="prompt-folding-changelog-icon" class="mingyu-help-icon" title="載入更新日誌中...">i</span>
         </div>
 
         <div id="prompt-folding-mode-radios" class="flex-container flexFlowColumn" style="gap: 10px; align-items: flex-start; margin-bottom: 15px;">
@@ -33,11 +33,13 @@
 
         <!-- 分隔符號設定（只在 standard/sandwich 模式顯示） -->
         <div id="divider-settings" style="margin-bottom: 15px;">
-            <label for="prompt-folding-dividers">
-                <span>分組標示符號（一行一個）</span>
-            </label>
-            <span class="mingyu-help-icon" style="position: absolute; margin-left: 5px; margin-top: -2px;" title="輸入用於標識群組標題的符號或文字。&#10;&#10;範例：&#10;• 輸入「=」會匹配「=」開頭的提示詞&#10;• 輸入「---」會匹配「---」開頭的提示詞">?</span>
-            <textarea id="prompt-folding-dividers" class="text_pole textarea_compact" rows="4" placeholder="=&#10;-" style="margin-top: 8px;"></textarea>
+            <div style="position: relative; margin-bottom: 8px;">
+                <label for="prompt-folding-dividers">
+                    <span>分組標示符號（一行一個）</span>
+                </label>
+                <span class="mingyu-help-icon" title="輸入用於標識群組標題的符號或文字。&#10;&#10;範例：&#10;• 輸入「=」會匹配「=」開頭的提示詞&#10;• 輸入「---」會匹配「---」開頭的提示詞">?</span>
+            </div>
+            <textarea id="prompt-folding-dividers" class="text_pole textarea_compact" rows="4" placeholder="=&#10;-"></textarea>
         </div>
 
         <!-- 手動選擇按鈕（只在 manual 模式顯示） -->
@@ -60,6 +62,25 @@
             <div id="prompt-folding-reset" class="menu_button menu_button_icon">
                 <i class="fa-solid fa-rotate-left"></i> 重設
             </div>
+        </div>
+
+        <!-- 跨 Preset 複製配置 -->
+        <div style="margin-top: 20px; padding-top: 15px; border-top: 1px solid rgba(255,255,255,0.1);">
+            <div style="position: relative; margin-bottom: 10px;">
+                <h4 style="margin: 0; font-size: 13px;">從其他 Preset 複製配置</h4>
+                <span class="mingyu-help-icon" title="從其他 Preset 複製摺疊配置到當前 Preset。&#10;&#10;會自動透過名稱匹配條目，適用於：&#10;• 同一個 Preset 的不同版本&#10;• 條目名稱相同的 Preset">?</span>
+            </div>
+            <div class="flex-container" style="gap: 8px; align-items: center;">
+                <select id="prompt-folding-copy-from-preset" class="text_pole" style="flex: 1;">
+                    <option value="">（載入中...）</option>
+                </select>
+                <div id="prompt-folding-copy-config-btn" class="menu_button menu_button_icon" style="flex-shrink: 0;">
+                    <i class="fa-solid fa-copy"></i> 複製
+                </div>
+            </div>
+            <small style="display: block; margin-top: 8px; opacity: 0.7; font-size: 11px;">
+                會複製：摺疊模式、分組設定、手動選擇的資料夾
+            </small>
         </div>
 
         <!-- Debug 模式開關 (放最下面) -->
