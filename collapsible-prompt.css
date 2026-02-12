@@ -40,10 +40,12 @@
 /* 3. 自訂的箭頭圖示
 ------------------------------------------------------------ */
 .mingyu-prompt-group > summary::before {
-    content: '▶';
-    font-size: 0.75em;
+    content: '\f101'; /* fa-angles-right */
+    font-family: 'Font Awesome 6 Free';
+    font-weight: 900;
+    /* font-size: 0.75em; */
     color: #aaa;
-    margin-right: 8px; /* 箭頭和文字之間的距離 */
+    margin: 4px;
     transition: transform 0.2s ease-in-out;
     display: inline-block; /* 確保 transform 生效 */
     flex-shrink: 0; /* 防止箭頭被壓縮 */
@@ -61,7 +63,7 @@
     flex: 1;
     display: inline-flex;
     align-items: center;
-    margin-left: 0.5em;
+    /* margin-left: 0.5em; */
 }
 
 /* 5. 標題內的星號圖示隱藏

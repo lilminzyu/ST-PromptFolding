@@ -90,15 +90,23 @@ function createGroupDOM(headerItem, headerInfo, contentItems) {
         // 設定名稱（保留 icon）
         setTextName(link, latestName);
 
-        // 在 link 上加監聽，在 capture 階段就阻止原生事件
+        // 在 link 上阻止原生點擊行為（避免觸發 inspect）
         link.addEventListener('click', (e) => {
-            log('[Link Click - Capture] target:', e.target, 'currentTarget:', e.currentTarget);
-            log('[Link Click - Capture] preventDefault and stopPropagation');
+            e.preventDefault();
+            e.stopPropagation();
+        }, true);
+    }
+
+    // 在 promptNameSpan 上加監聽，讓整個名稱區塊（4fr 欄位）都能點擊收闔
+    const nameSpan = headerItem.querySelector(config.selectors.promptNameSpan);
+    if (nameSpan) {
+        nameSpan.addEventListener('click', (e) => {
+            log('[NameSpan Click] target:', e.target);
             e.preventDefault();
             e.stopPropagation();
             details.open = !details.open;
-            log('[Link Click - Capture] toggled details.open to:', details.open);
-        }, true); // capture 階段優先攔截，阻止原生處理器
+            log('[NameSpan Click] toggled details.open to:', details.open);
+        }, true); // capture 階段，比 link 先觸發，stopPropagation 會阻止 link 重複處理
     }
 
     // 4. 建立 Summary (標題列)
@@ -106,7 +114,12 @@ function createGroupDOM(headerItem, headerInfo, contentItems) {
     summary.onclick = (e) => {
         log('[Summary Click] target:', e.target);
         e.preventDefault();
-    }; // 擋掉預設行為，由上面 link 控制
+        // 直接點到 summary（箭頭區域）時也觸發收闔
+        if (e.target === summary) {
+            details.open = !details.open;
+            log('[Summary Click] toggled details.open to:', details.open);
+        }
+    };
     summary.appendChild(headerItem);
     details.appendChild(summary);
 
