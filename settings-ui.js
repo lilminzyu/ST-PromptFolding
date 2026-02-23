@@ -90,8 +90,9 @@ function initLogic() {
     // 6. 開始選擇按鈕（手動模式）
     els.startSelectBtn.onclick = () => startManualSelection();
 
-    // 7. 載入可用的 preset 列表
+    // 7. 載入可用的 preset 列表（每次點開都重新掃描）
     loadAvailablePresets(els.copyFromPresetSelect);
+    els.copyFromPresetSelect.addEventListener('focus', () => loadAvailablePresets(els.copyFromPresetSelect));
 
     // 8. 複製配置按鈕
     els.copyConfigBtn.onclick = () => handleCopyConfig(els);
@@ -242,25 +243,25 @@ function finishManualSelection() {
 
 // 載入可用的 preset 列表
 function loadAvailablePresets(selectElement) {
-    const presets = getAllPresetNames();
     const currentPreset = getCurrentPresetName();
 
+    // 從 ST 的 preset 下拉選單讀取實際存在的 preset
+    const stSelect = document.querySelector('#settings_preset_openai');
+    const allStPresets = stSelect
+        ? Array.from(stSelect.options).map(o => o.textContent.trim()).filter(Boolean)
+        : [];
+
+    // 只保留在 ST 中存在、且 extension 有設定資料、且不是當前 preset 的
+    const existingKeys = getAllPresetNames();
+    const otherPresets = allStPresets.filter(p => p !== currentPreset && existingKeys.includes(p));
+
     selectElement.innerHTML = '';
-
-    if (presets.length === 0) {
-        selectElement.innerHTML = '<option value="">（無其他 Preset）</option>';
-        return;
-    }
-
-    // 過濾掉當前 preset
-    const otherPresets = presets.filter(p => p !== currentPreset);
 
     if (otherPresets.length === 0) {
         selectElement.innerHTML = '<option value="">（無其他 Preset）</option>';
         return;
     }
 
-    // 加入選項
     selectElement.innerHTML = '<option value="">選擇要複製的 Preset</option>';
     otherPresets.forEach(preset => {
         const option = document.createElement('option');
