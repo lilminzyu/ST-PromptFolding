@@ -1,6 +1,6 @@
 import { config, state, log, getStorageKey } from './state.js';
 import { buildCollapsibleGroups, toggleAllGroups } from './prompt-folding.js';
-import { createSettingsPanel } from './settings-ui.js';
+import { createSettingsPanel, cancelManualSelection } from './settings-ui.js';
 
 let isHooked = false;
 
@@ -183,6 +183,9 @@ function updateGroupHeaderStatus(pm) {
 function initialize(listContainer) {
     const pmWrapper = listContainer.closest('#completion_prompt_manager');
     if (!pmWrapper) return;
+
+    // Preset 切換時，若還在選擇模式就先取消，避免浮動面板殘留
+    cancelManualSelection();
 
     log('Initializing Prompt Folding...');
 

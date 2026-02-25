@@ -3,6 +3,7 @@ import { buildCollapsibleGroups } from './prompt-folding.js';
 import { callGenericPopup, POPUP_TYPE } from '../../../popup.js';
 
 let listContainerRef = null; // 儲存 listContainer 引用
+let selectionSnapshot = null; // 進入選擇模式前的快照，供取消時還原
 
 export async function createSettingsPanel(pmContainer, listContainer) {
     // 避免重複建立
@@ -17,7 +18,6 @@ export async function createSettingsPanel(pmContainer, listContainer) {
 
         // 找個好位置插入
         const header = pmContainer.querySelector('.completion_prompt_manager_header');
-        const target = header ? header.nextElementSibling : pmContainer.firstElementChild;
 
         // 使用 insertAdjacentHTML
         (header || pmContainer).insertAdjacentHTML(header ? 'afterend' : 'beforebegin', html);
@@ -177,6 +177,9 @@ function startManualSelection() {
 
     state.isSelectingHeaders = true;
 
+    // 快照目前的選擇，供取消時還原
+    selectionSnapshot = new Set(state.manualHeaders);
+
     // 1. 在每個條目前面加勾選框
     const allItems = listContainerRef.querySelectorAll(config.selectors.promptListItem);
 
@@ -189,9 +192,7 @@ function startManualSelection() {
         checkbox.checked = state.manualHeaders.has(item.dataset.pmIdentifier);
 
         // 阻止點擊事件冒泡到 li
-        checkbox.onclick = (e) => {
-            e.stopPropagation();
-        };
+        checkbox.onclick = (e) => e.stopPropagation();
 
         // 綁定變更事件
         checkbox.onchange = (e) => {
@@ -202,6 +203,7 @@ function startManualSelection() {
             } else {
                 state.manualHeaders.delete(id);
             }
+            updateFloatingCount();
             log('Manual header toggled:', id, checkbox.checked);
         };
 
@@ -209,36 +211,103 @@ function startManualSelection() {
         item.insertBefore(checkbox, item.firstChild);
     });
 
-    // 2. 替換為「完成選擇」按鈕
+    // 2. 原按鈕改為停用的「選擇中...」提示
     const startBtn = document.getElementById('prompt-folding-start-select');
-    startBtn.innerHTML = '<i class="fa-solid fa-check-double"></i> 完成選擇';
-    startBtn.style.background = 'rgba(74, 255, 158, 0.2)';
-    startBtn.onclick = finishManualSelection;
+    startBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> 選擇中...';
+    startBtn.style.background = 'rgba(255, 255, 255, 0.1)';
+    startBtn.style.opacity = '0.5';
+    startBtn.style.pointerEvents = 'none';
     startBtn.id = 'prompt-folding-finish-select';
 
-    toastr.info('請勾選要當資料夾的條目，完成後點擊「完成選擇」');
+    // 3. 建立浮動面板（已選數量 + ✓ + ✗）
+    const panel = document.createElement('div');
+    panel.id = 'prompt-folding-float-panel';
+    panel.innerHTML = `
+        <span id="prompt-folding-float-count"></span>
+        <div id="prompt-folding-float-finish" class="menu_button menu_button_icon">
+            <i class="fa-solid fa-check"></i>
+        </div>
+        <div id="prompt-folding-float-cancel" class="menu_button menu_button_icon">
+            <i class="fa-solid fa-xmark"></i>
+        </div>
+    `;
+    document.body.appendChild(panel);
+    positionFloatingPanel(panel);
+
+    panel.querySelector('#prompt-folding-float-finish').onclick = finishManualSelection;
+    panel.querySelector('#prompt-folding-float-cancel').onclick = cancelManualSelection;
+
+    updateFloatingCount();
+    toastr.info('請勾選要當資料夾的條目，完成後點擊「完成」');
+}
+
+function updateFloatingCount() {
+    const el = document.getElementById('prompt-folding-float-count');
+    if (el) el.textContent = `已選 ${state.manualHeaders.size} 個`;
+}
+
+function positionFloatingPanel(panel) {
+    const nav = document.getElementById('left-nav-panel');
+    if (!nav) return;
+    const rect = nav.getBoundingClientRect();
+    panel.style.left = `${rect.left + rect.width / 2}px`;
+    panel.style.transform = 'translateX(-50%)';
+}
+
+function restoreSelectButton() {
+    const btn = document.getElementById('prompt-folding-finish-select');
+    if (!btn) return;
+    btn.innerHTML = '<i class="fa-solid fa-hand-pointer"></i> 開始選擇資料夾';
+    btn.style.background = 'rgba(74, 158, 255, 0.2)';
+    btn.style.opacity = '';
+    btn.style.pointerEvents = '';
+    btn.onclick = startManualSelection;
+    btn.id = 'prompt-folding-start-select';
 }
 
 function finishManualSelection() {
     log('Finish manual header selection, selected:', state.manualHeaders.size);
 
     state.isSelectingHeaders = false;
+    selectionSnapshot = null;
 
     // 移除所有勾選框
     document.querySelectorAll('.mingyu-header-checkbox').forEach(cb => cb.remove());
 
-    // 還原為「開始選擇」按鈕
-    const finishBtn = document.getElementById('prompt-folding-finish-select');
-    finishBtn.innerHTML = '<i class="fa-solid fa-hand-pointer"></i> 開始選擇資料夾';
-    finishBtn.style.background = 'rgba(74, 158, 255, 0.2)';
-    finishBtn.onclick = startManualSelection;
-    finishBtn.id = 'prompt-folding-start-select';
+    // 移除浮動面板
+    document.getElementById('prompt-folding-float-panel')?.remove();
+
+    restoreSelectButton();
 
     // 儲存並重建
     saveCustomSettings();
     refreshList();
 
     toastr.success(`已選擇 ${state.manualHeaders.size} 個資料夾`);
+}
+
+export function cancelManualSelection() {
+    if (!state.isSelectingHeaders) return;
+    log('Cancel manual header selection');
+
+    state.isSelectingHeaders = false;
+
+    // 還原快照
+    if (selectionSnapshot !== null) {
+        state.manualHeaders.clear();
+        selectionSnapshot.forEach(id => state.manualHeaders.add(id));
+        selectionSnapshot = null;
+    }
+
+    // 移除所有勾選框
+    document.querySelectorAll('.mingyu-header-checkbox').forEach(cb => cb.remove());
+
+    // 移除浮動面板
+    document.getElementById('prompt-folding-float-panel')?.remove();
+
+    restoreSelectButton();
+
+    toastr.info('已取消，還原至修改前的選擇');
 }
 
 // 載入可用的 preset 列表
@@ -321,8 +390,6 @@ async function handleCopyConfig(els) {
         refreshList();
 
         // 6. 顯示結果
-        const totalHeaders = (configData.manualHeaders || []).length;
-        const matched = matchResults.byName + matchResults.byUuid;
         const failed = matchResults.failed.length;
 
         let message = `配置複製完成！\n\n`;
@@ -355,7 +422,7 @@ function loadMetaInfo() {
         .then(logs => {
             const icon = document.getElementById('prompt-folding-changelog-icon');
             if (icon) {
-                const text = logs.map(l => `[${l.date}] v${l.version}\n${l.changes.map(c=>`• ${c}`).join('\n')}`).join('\n\n');
+                const text = logs.map(l => `[${l.date}] v${l.version}\n${l.changes.map(c => `• ${c}`).join('\n')}`).join('\n\n');
                 icon.title = `更新日誌\n\n${text}`;
             }
         });
