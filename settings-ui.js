@@ -248,9 +248,13 @@ function updateFloatingCount() {
 
 function positionFloatingPanel(panel) {
     const nav = document.getElementById('left-nav-panel');
-    if (!nav) return;
-    const rect = nav.getBoundingClientRect();
-    panel.style.left = `${rect.left + rect.width / 2}px`;
+    if (nav) {
+        const rect = nav.getBoundingClientRect();
+        panel.style.left = `${rect.left + rect.width / 2}px`;
+    } else {
+        // 手機版或找不到側欄時，置中在 viewport
+        panel.style.left = '50vw';
+    }
     panel.style.transform = 'translateX(-50%)';
 }
 
