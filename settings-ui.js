@@ -231,8 +231,13 @@ function startManualSelection() {
             <i class="fa-solid fa-xmark"></i>
         </div>
     `;
-    document.body.appendChild(panel);
-    positionFloatingPanel(panel);
+    // 用 wrapper 掛進 #left-nav-panel，position: sticky 黏在可見區域底部
+    const wrapper = document.createElement('div');
+    wrapper.id = 'prompt-folding-float-wrapper';
+    wrapper.appendChild(panel);
+
+    const navPanel = document.getElementById('left-nav-panel') || document.body;
+    navPanel.appendChild(wrapper);
 
     panel.querySelector('#prompt-folding-float-finish').onclick = finishManualSelection;
     panel.querySelector('#prompt-folding-float-cancel').onclick = cancelManualSelection;
@@ -244,18 +249,6 @@ function startManualSelection() {
 function updateFloatingCount() {
     const el = document.getElementById('prompt-folding-float-count');
     if (el) el.textContent = `已選 ${state.manualHeaders.size} 個`;
-}
-
-function positionFloatingPanel(panel) {
-    const nav = document.getElementById('left-nav-panel');
-    if (nav) {
-        const rect = nav.getBoundingClientRect();
-        panel.style.left = `${rect.left + rect.width / 2}px`;
-    } else {
-        // 手機版或找不到側欄時，置中在 viewport
-        panel.style.left = '50vw';
-    }
-    panel.style.transform = 'translateX(-50%)';
 }
 
 function restoreSelectButton() {
@@ -278,8 +271,8 @@ function finishManualSelection() {
     // 移除所有勾選框
     document.querySelectorAll('.mingyu-header-checkbox').forEach(cb => cb.remove());
 
-    // 移除浮動面板
-    document.getElementById('prompt-folding-float-panel')?.remove();
+    // 移除浮動面板 wrapper
+    document.getElementById('prompt-folding-float-wrapper')?.remove();
 
     restoreSelectButton();
 
@@ -306,8 +299,8 @@ export function cancelManualSelection() {
     // 移除所有勾選框
     document.querySelectorAll('.mingyu-header-checkbox').forEach(cb => cb.remove());
 
-    // 移除浮動面板
-    document.getElementById('prompt-folding-float-panel')?.remove();
+    // 移除浮動面板 wrapper
+    document.getElementById('prompt-folding-float-wrapper')?.remove();
 
     restoreSelectButton();
 

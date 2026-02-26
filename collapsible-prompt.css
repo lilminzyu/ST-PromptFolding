@@ -320,20 +320,30 @@ li.completion_prompt_manager_prompt:has(.mingyu-header-checkbox) {
 
 /* 20. 手動選擇模式的浮動面板
 ------------------------------------------------------------ */
+
+/* wrapper: sticky 黏在 #left-nav-panel 可見區域底部，置中內容 */
+#prompt-folding-float-wrapper {
+    position: absolute;
+    bottom: 0;
+    width: 100%;
+    display: flex;
+    justify-content: center;
+    padding: 12px 0;
+    z-index: 100;
+    pointer-events: none; /* 讓點擊穿透 wrapper 空白區 */
+}
+
 #prompt-folding-float-panel {
-    position: fixed;
-    bottom: 24px;
-    /* left / transform 由 JS 根據 #left-nav-panel 動態設定 */
-    z-index: 9999;
+    pointer-events: all;
     display: flex;
     align-items: center;
     gap: 8px;
-    /* background: var(--SmartThemeBodyColor); */
     padding: 10px 14px;
     border-radius: 10px;
     border: 1px solid rgba(255, 255, 255, 0.12);
     box-shadow: 0 4px 20px var(--SmartThemeFastUIBGColor);
     backdrop-filter: blur(8px);
+    background: color-mix(in srgb, var(--SmartThemeFastUIBGColor) 75%, transparent);
     user-select: none;
 }
 
