@@ -39,8 +39,7 @@ function initLogic() {
 
     const els = {
         textarea: document.getElementById('prompt-folding-dividers'),
-        applyBtn: document.getElementById('prompt-folding-apply'),
-        resetBtn: document.getElementById('prompt-folding-reset'),
+        resetIcon: document.getElementById('prompt-folding-reset-icon'),
         radios: document.getElementsByName('folding-mode'),
         panel: document.getElementById('prompt-folding-settings'),
         toggleBtn: document.querySelector('.mingyu-settings-toggle'),
@@ -58,6 +57,11 @@ function initLogic() {
 
     const currentRadio = document.querySelector(`input[name="folding-mode"][value="${state.foldingMode}"]`);
     if (currentRadio) currentRadio.checked = true;
+
+    // 若當前是舊版模式，自動展開折疊區塊
+    if (state.foldingMode === 'standard' || state.foldingMode === 'sandwich') {
+        document.getElementById('prompt-folding-legacy-modes')?.setAttribute('open', '');
+    }
 
     updateModeUI(); // 根據模式顯示/隱藏對應區塊
 
@@ -81,11 +85,20 @@ function initLogic() {
         }
     });
 
-    // 4. 套用按鈕
-    els.applyBtn.onclick = () => handleApply(els);
+    // 4. 分隔符號失焦自動存
+    els.textarea.onblur = () => {
+        const lines = els.textarea.value.split('\n').map(x => x.trim()).filter(x => x);
+        if ((state.foldingMode === 'standard' || state.foldingMode === 'sandwich') && lines.length === 0) {
+            toastr.warning('請至少輸入一個符號');
+            return;
+        }
+        state.customDividers = lines;
+        saveCustomSettings();
+        refreshList();
+    };
 
-    // 5. 重設按鈕
-    els.resetBtn.onclick = () => handleReset(els);
+    // 5. 重設 icon
+    els.resetIcon.onclick = () => handleReset(els);
 
     // 6. 開始選擇按鈕（手動模式）
     els.startSelectBtn.onclick = () => startManualSelection();
@@ -111,26 +124,6 @@ function getModeDisplayName() {
     return names[state.foldingMode] || state.foldingMode;
 }
 
-function handleApply(els) {
-    log('Apply button clicked');
-
-    const lines = els.textarea.value.split('\n').map(x => x.trim()).filter(x => x);
-
-    // 如果是符號模式但沒填符號，警告
-    if ((state.foldingMode === 'standard' || state.foldingMode === 'sandwich') && lines.length === 0) {
-        return toastr.warning('請至少輸入一個符號');
-    }
-
-    state.customDividers = lines;
-    saveCustomSettings();
-    refreshList();
-
-    // 關閉面板
-    els.panel.style.display = 'none';
-    els.toggleBtn?.classList.remove('active');
-
-    toastr.success('設定已儲存');
-}
 
 async function handleReset(els) {
     log('Reset button clicked');
@@ -411,7 +404,10 @@ function loadMetaInfo() {
     // 版本
     fetch('/scripts/extensions/third-party/ST-PromptFolding/manifest.json')
         .then(r => r.json())
-        .then(m => document.getElementById('prompt-folding-version-info').textContent = `v${m.version} © ${m.author}`);
+        .then(m => {
+            const el = document.getElementById('prompt-folding-version-info');
+            el.innerHTML = `v${m.version} © <a href="${m.homePage}" target="_blank" rel="noopener" style="color: inherit; opacity: 0.7;">${m.author}</a>`;
+        });
 
     // Changelog
     fetch('/scripts/extensions/third-party/ST-PromptFolding/changelog.json')

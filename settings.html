@@ -3,6 +3,7 @@
 
         <div style="position: relative;">
             <h3 style="margin: 0;">摺疊模式設定</h3>
+            <span id="prompt-folding-reset-icon" class="mingyu-help-icon" style="right: 26px;" title="重設所有設定"><i class="fa-solid fa-rotate-left" style="font-size: 11px;"></i></span>
             <span id="prompt-folding-changelog-icon" class="mingyu-help-icon" title="載入更新日誌中...">i</span>
         </div>
 
@@ -14,21 +15,22 @@
                 <span style="font-weight: 500;">手動選擇模式 <small style="color: #4a9eff;">(方便👍🏻)</small></span>
             </label>
 
-            <!-- 分隔線 -->
-            <div style="width: 100%; border-top: 1px dashed rgba(255,255,255,0.15); margin: 5px 0;"></div>
-            <small style="opacity: 0.5; font-size: 11px; margin-left: 4px;">以下為舊版模式</small>
-
-            <!-- 標準模式 -->
-            <label class="radio_label" title="標準模式：從一個標頭開始，摺疊其後的所有項目" style="width: 100%; opacity: 0.7;">
-                <input type="radio" name="folding-mode" value="standard" id="prompt-folding-mode-standard">
-                <span>標準模式 <small>(需設定分隔符號)</small></span>
-            </label>
-
-            <!-- 包覆模式 -->
-            <label class="radio_label" title="包覆模式：尋找一對相同的標頭，包住中間內容" style="width: 100%; opacity: 0.7;">
-                <input type="radio" name="folding-mode" value="sandwich" id="prompt-folding-mode-sandwich">
-                <span>包覆模式 <small>(需設定分隔符號)</small></span>
-            </label>
+            <!-- 舊版模式（可折疊） -->
+            <details id="prompt-folding-legacy-modes" style="width: 100%;">
+                <summary style="font-size: 11px; opacity: 0.4; cursor: pointer; list-style: none; user-select: none;">▸ 舊版模式</summary>
+                <div style="display: flex; flex-direction: column; gap: 10px; margin-top: 8px;">
+                    <!-- 標準模式 -->
+                    <label class="radio_label" title="標準模式：從一個標頭開始，摺疊其後的所有項目" style="width: 100%; opacity: 0.7;">
+                        <input type="radio" name="folding-mode" value="standard" id="prompt-folding-mode-standard">
+                        <span>標準模式 <small>(需設定分隔符號)</small></span>
+                    </label>
+                    <!-- 包覆模式 -->
+                    <label class="radio_label" title="包覆模式：尋找一對相同的標頭，包住中間內容" style="width: 100%; opacity: 0.7;">
+                        <input type="radio" name="folding-mode" value="sandwich" id="prompt-folding-mode-sandwich">
+                        <span>包覆模式 <small>(需設定分隔符號)</small></span>
+                    </label>
+                </div>
+            </details>
         </div>
 
         <!-- 分隔符號設定（只在 standard/sandwich 模式顯示） -->
@@ -45,22 +47,9 @@
         <!-- 手動選擇按鈕（只在 manual 模式顯示） -->
         <div id="manual-mode-controls" style="display: none; margin-bottom: 15px;">
             <div class="flex-container justifyCenter">
-                <div id="prompt-folding-start-select" class="menu_button menu_button_icon" style="background: rgba(74, 158, 255, 0.2);">
+                <div id="prompt-folding-start-select" class="menu_button menu_button_icon" style="background: rgba(74, 158, 255, 0.2);" title="點擊後，每個條目旁會出現勾選框，完成後透過懸浮面板確認或取消">
                     <i class="fa-solid fa-hand-pointer"></i> 開始選擇資料夾
                 </div>
-            </div>
-            <small style="display: block; text-align: center; margin-top: 8px; opacity: 0.7; font-size: 11px;">
-                點擊後，每個條目旁會出現勾選框，勾選後按「完成選擇」即可
-            </small>
-        </div>
-
-        <!-- 套用/重設按鈕 -->
-        <div class="flex-container justifyCenter marginTop10" style="gap: 8px;">
-            <div id="prompt-folding-apply" class="menu_button menu_button_icon">
-                <i class="fa-solid fa-check"></i> 套用
-            </div>
-            <div id="prompt-folding-reset" class="menu_button menu_button_icon">
-                <i class="fa-solid fa-rotate-left"></i> 重設
             </div>
         </div>
 

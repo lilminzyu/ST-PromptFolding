@@ -1,6 +1,7 @@
-import { config, state, log, getStorageKey } from './state.js';
+import { config, state, log, getStorageKey, exportConfigFromPreset, getCurrentPresetName } from './state.js';
 import { buildCollapsibleGroups, toggleAllGroups } from './prompt-folding.js';
 import { createSettingsPanel, cancelManualSelection } from './settings-ui.js';
+import { eventSource, event_types } from '../../../../script.js';
 
 let isHooked = false;
 
@@ -229,3 +230,34 @@ globalObserver.observe(document.body, { childList: true, subtree: true });
 // 如果腳本跑太慢，列表已經在畫面上了，就手動觸發一次
 const initialList = document.querySelector(config.selectors.promptList);
 if (initialList) initialize(initialList);
+
+// --- 5. Preset 匯出 / 匯入 ---
+
+// 匯出：把摺疊設定塞進 preset JSON
+eventSource.on(event_types.OAI_PRESET_EXPORT_READY, (preset) => {
+    preset.extensions ??= {};
+    preset.extensions.prompt_folding = exportConfigFromPreset(getCurrentPresetName());
+    log('Folding config exported to preset');
+});
+
+// 匯入：從 preset JSON 讀設定，直接寫進目標 preset 的 localStorage key
+// 注意：此時 oai_settings 尚未切換，不能用 getCurrentPresetName()，要用 event 的 presetName
+eventSource.on(event_types.OAI_PRESET_IMPORT_READY, ({ data, presetName }) => {
+    const pf = data?.extensions?.prompt_folding;
+    if (!pf) return;
+
+    const getKey = (key) => `${config.storagePrefix}${presetName}_${key}`;
+
+    if (pf.foldingMode) localStorage.setItem(getKey(config.storageKeys.foldingMode), pf.foldingMode);
+    if (pf.customDividers) localStorage.setItem(getKey(config.storageKeys.customDividers), JSON.stringify(pf.customDividers));
+    if (pf.debugMode !== undefined) localStorage.setItem(getKey(config.storageKeys.debugMode), pf.debugMode ? 'true' : 'false');
+
+    if (pf.manualHeaders?.length) {
+        const uuids = pf.manualHeaders.map(h => h.uuid);
+        const names = pf.manualHeaders.map(h => [h.uuid, h.name]);
+        localStorage.setItem(getKey(config.storageKeys.manualHeaders), JSON.stringify(uuids));
+        localStorage.setItem(getKey(config.storageKeys.originalNames), JSON.stringify(names));
+    }
+
+    log('Folding config written to preset key:', presetName);
+});
