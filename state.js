@@ -117,7 +117,8 @@ export async function saveToPreset() {
         oai_settings.extensions = oai_settings.extensions || {};
         oai_settings.extensions.prompt_folding = getStateForSave();
 
-        const name = getCurrentPresetName();
+        // 優先用 oai_settings 本身的名稱，和 ST 內部保持一致
+        const name = oai_settings.preset_settings_openai || getCurrentPresetName();
         console.log('[PF] saveToPreset — preset:', name, '| data:', JSON.stringify(oai_settings.extensions.prompt_folding));
 
         if (_cachedSavePreset) {
