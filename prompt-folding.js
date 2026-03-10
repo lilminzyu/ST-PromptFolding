@@ -1,4 +1,10 @@
-import { config, state, dividerRegex, log, getStorageKey } from './state.js';
+import { config, state, dividerRegex, log, saveToPreset } from './state.js';
+
+let _saveTimer = null;
+function debouncedSave() {
+    clearTimeout(_saveTimer);
+    _saveTimer = setTimeout(() => saveToPreset().catch(console.error), 1500);
+}
 
 /**
  * 從 <a> 標籤中提取純文字名稱（不含 icon）
@@ -46,8 +52,6 @@ function getGroupHeaderInfo(promptItem) {
   if (cachedName !== currentName) {
     log('Name changed for', itemId, ':', cachedName, '->', currentName);
     state.originalNames.set(itemId, currentName);
-    // 只存 originalNames，不要覆蓋其他設定
-    localStorage.setItem(getStorageKey(config.storageKeys.originalNames), JSON.stringify([...state.originalNames]));
   }
 
   const originalName = currentName;
@@ -132,7 +136,7 @@ function createGroupDOM(headerItem, headerInfo, contentItems) {
     // 6. 監聽開關狀態
     details.ontoggle = () => {
         state.openGroups[groupKey] = details.open;
-        localStorage.setItem(getStorageKey(config.storageKeys.openStates), JSON.stringify(state.openGroups));
+        debouncedSave();
     };
 
     return details;
@@ -142,9 +146,6 @@ function createGroupDOM(headerItem, headerInfo, contentItems) {
  * 主函式：重建列表
  */
 export function buildCollapsibleGroups(listContainer) {
-  // 強制同步最新的開關狀態
-  state.openGroups = JSON.parse(localStorage.getItem(getStorageKey(config.storageKeys.openStates)) || '{}');
-
   log('Building collapsible groups, mode:', state.foldingMode);
 
   if (!listContainer || state.isProcessing) return;
@@ -166,9 +167,6 @@ export function buildCollapsibleGroups(listContainer) {
         // 不需要 setTextName，因為已經是當前名稱了
       }
     });
-
-    // 保存更新後的名稱緩存（只存 originalNames，不要覆蓋其他設定）
-    localStorage.setItem(getStorageKey(config.storageKeys.originalNames), JSON.stringify([...state.originalNames]));
 
     // 2. 清空並重置狀態
     listContainer.innerHTML = '';

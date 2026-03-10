@@ -1,6 +1,6 @@
-import { config, state, log, getStorageKey, exportConfigFromPreset, getCurrentPresetName } from './state.js';
+import { config, state, log, loadFromPreset, saveToPreset, setCachedSavePreset } from './state.js';
 import { buildCollapsibleGroups, toggleAllGroups } from './prompt-folding.js';
-import { createSettingsPanel, cancelManualSelection } from './settings-ui.js';
+import { createSettingsPanel, cancelManualSelection, updateSettingsUI } from './settings-ui.js';
 import { eventSource, event_types } from '../../../../script.js';
 
 let isHooked = false;
@@ -23,7 +23,6 @@ function createListContentObserver(listContainer) {
                 return true;
             }
             // characterData: 文字內容變更（條目名稱改了）
-            // 注意：不需要刪除緩存，buildCollapsibleGroups 會自動更新
             if (m.type === 'characterData') {
                 const target = m.target.parentElement;
                 if (target && target.matches(config.selectors.promptLink)) {
@@ -37,7 +36,6 @@ function createListContentObserver(listContainer) {
         if (shouldRebuild) {
             observer.disconnect();
             buildCollapsibleGroups(listContainer);
-            // 稍微延遲後重新掛載，避免連續觸發
             setTimeout(() => observer.observe(listContainer, { childList: true, subtree: true, characterData: true }), 100);
         }
     });
@@ -101,13 +99,13 @@ function setupToggleButton(listContainer) {
         createBtn('fa-compress', '收合所有', () => {
             log('Collapse all button clicked');
             toggleAllGroups(listContainer, false);
-        }, 'mingyu-collapse-all')
+        }, 'mingyu-collapse-all'),
     );
 
     // 開關按鈕
     const toggleBtn = createBtn('', '', () => {
         state.isEnabled = !state.isEnabled;
-        localStorage.setItem(getStorageKey(config.storageKeys.featureEnabled), state.isEnabled);
+        saveToPreset().catch(err => console.error('[PF] Save failed:', err));
         log('Feature toggled:', state.isEnabled);
         updateToggleState();
         buildCollapsibleGroups(listContainer);
@@ -137,7 +135,8 @@ function setupToggleButton(listContainer) {
     header.insertBefore(container, target);
 }
 
-// --- 3. Hook 核心邏輯 (效能優化版) ---
+
+// --- 3. Hook 核心邏輯 ---
 
 function hookPromptManager(pm) {
     const originalGet = pm.getPromptCollection.bind(pm);
@@ -146,10 +145,8 @@ function hookPromptManager(pm) {
         const collection = originalGet(type);
         if (!state.isEnabled) return collection;
 
-        // 更新 Header 狀態並過濾被禁用的子項
         updateGroupHeaderStatus(pm);
 
-        // 建立被禁用 ID 的 Set (O(1) lookup)
         const disabledIds = new Set();
         for (const [groupKey, childIds] of Object.entries(state.groupHierarchy)) {
             if (state.groupHeaderStatus[groupKey] === false) {
@@ -157,7 +154,6 @@ function hookPromptManager(pm) {
             }
         }
 
-        // 過濾
         if (disabledIds.size > 0) {
             collection.collection = collection.collection.filter(p => !disabledIds.has(p.identifier));
         }
@@ -170,8 +166,7 @@ function hookPromptManager(pm) {
 function updateGroupHeaderStatus(pm) {
     const char = pm.activeCharacter;
     if (!char) return;
-    
-    // 從 Prompt Order 檢查 Header 目前有沒有被啟用
+
     const order = pm.getPromptOrderForCharacter(char);
     Object.keys(state.groupHierarchy).forEach(headerId => {
         const entry = order.find(e => e.identifier === headerId);
@@ -179,15 +174,19 @@ function updateGroupHeaderStatus(pm) {
     });
 }
 
+
 // --- 4. 初始化與進入點 ---
 
 function initialize(listContainer) {
     const pmWrapper = listContainer.closest('#completion_prompt_manager');
     if (!pmWrapper) return;
 
-    // Preset 切換時，若還在選擇模式就先取消，避免浮動面板殘留
-    cancelManualSelection();
+    // 從當前 preset 的 extensions 載入 state
+    if (typeof oai_settings !== 'undefined') {
+        loadFromPreset(oai_settings.extensions?.prompt_folding);
+    }
 
+    cancelManualSelection();
     log('Initializing Prompt Folding...');
 
     createSettingsPanel(pmWrapper, listContainer);
@@ -198,7 +197,6 @@ function initialize(listContainer) {
 
     log('Initialization completed');
 
-    // 嘗試 Hook
     if (!isHooked) {
         log('Attempting to install hook...');
         import('../../../../scripts/openai.js').then(m => {
@@ -214,7 +212,6 @@ function initialize(listContainer) {
     }
 }
 
-// 全域監控：等 ST 畫出列表
 const globalObserver = new MutationObserver((mutations) => {
     for (const m of mutations) {
         for (const node of m.addedNodes) {
@@ -227,37 +224,34 @@ const globalObserver = new MutationObserver((mutations) => {
 });
 globalObserver.observe(document.body, { childList: true, subtree: true });
 
-// 如果腳本跑太慢，列表已經在畫面上了，就手動觸發一次
 const initialList = document.querySelector(config.selectors.promptList);
 if (initialList) initialize(initialList);
 
-// --- 5. Preset 匯出 / 匯入 ---
 
-// 匯出：把摺疊設定塞進 preset JSON
-eventSource.on(event_types.OAI_PRESET_EXPORT_READY, (preset) => {
-    preset.extensions ??= {};
-    preset.extensions.prompt_folding = exportConfigFromPreset(getCurrentPresetName());
-    log('Folding config exported to preset');
+// --- 5. Preset 事件監聽 ---
+
+// Preset 切換前：讀新 preset 資料，避免 initialize 用到舊 state
+eventSource.on(event_types.OAI_PRESET_CHANGED_BEFORE, ({ preset, savePreset }) => {
+    setCachedSavePreset(savePreset);
+    cancelManualSelection();
+    loadFromPreset(preset.extensions?.prompt_folding);
+    log('OAI_PRESET_CHANGED_BEFORE: loaded new preset data');
 });
 
-// 匯入：從 preset JSON 讀設定，直接寫進目標 preset 的 localStorage key
-// 注意：此時 oai_settings 尚未切換，不能用 getCurrentPresetName()，要用 event 的 presetName
-eventSource.on(event_types.OAI_PRESET_IMPORT_READY, ({ data, presetName }) => {
-    const pf = data?.extensions?.prompt_folding;
-    if (!pf) return;
-
-    const getKey = (key) => `${config.storagePrefix}${presetName}_${key}`;
-
-    if (pf.foldingMode) localStorage.setItem(getKey(config.storageKeys.foldingMode), pf.foldingMode);
-    if (pf.customDividers) localStorage.setItem(getKey(config.storageKeys.customDividers), JSON.stringify(pf.customDividers));
-    if (pf.debugMode !== undefined) localStorage.setItem(getKey(config.storageKeys.debugMode), pf.debugMode ? 'true' : 'false');
-
-    if (pf.manualHeaders?.length) {
-        const uuids = pf.manualHeaders.map(h => h.uuid);
-        const names = pf.manualHeaders.map(h => [h.uuid, h.name]);
-        localStorage.setItem(getKey(config.storageKeys.manualHeaders), JSON.stringify(uuids));
-        localStorage.setItem(getKey(config.storageKeys.originalNames), JSON.stringify(names));
+// Preset 切換後：若 prompt list 還在（未被移除重建），同步 UI
+eventSource.on(event_types.OAI_PRESET_CHANGED_AFTER, () => {
+    const listContainer = document.querySelector(config.selectors.promptList);
+    if (listContainer) {
+        buildCollapsibleGroups(listContainer);
+        updateSettingsUI();
     }
+});
 
-    log('Folding config written to preset key:', presetName);
+// 匯入外部 preset 檔案：讀 prompt_folding 並存進當前 preset
+eventSource.on(event_types.OAI_PRESET_IMPORT_READY, ({ data, presetName }) => {
+    const pfData = data?.extensions?.prompt_folding;
+    if (!pfData) return;
+    // 匯入目標 preset 的 state
+    loadFromPreset(pfData);
+    log('OAI_PRESET_IMPORT_READY: loaded folding data for', presetName);
 });
