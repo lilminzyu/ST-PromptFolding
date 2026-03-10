@@ -130,6 +130,7 @@ export async function saveToPreset() {
             const preset = getChatCompletionPreset(oai_settings);
             // getChatCompletionPreset 可能不包含 extensions，強制補上
             preset.extensions = oai_settings.extensions ?? {};
+            console.log('[PF] fallback: preset.extensions =', JSON.stringify(preset.extensions));
             const res = await fetch('/api/presets/save', {
                 method: 'POST',
                 headers: getRequestHeaders(),
