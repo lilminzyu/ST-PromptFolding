@@ -16,25 +16,6 @@ function extractTextName(link) {
 }
 
 /**
- * 設定 <a> 標籤的純文字內容（保留 icon）
- */
-function setTextName(link, newText) {
-    // 找到純文字節點並更新
-    const textNodes = Array.from(link.childNodes).filter(n => n.nodeType === 3);
-    if (textNodes.length > 0) {
-        // 如果有多個文字節點，只改第一個（通常只有一個）
-        textNodes[0].textContent = newText;
-        // 清除其他文字節點
-        for (let i = 1; i < textNodes.length; i++) {
-            textNodes[i].textContent = '';
-        }
-    } else {
-        // 沒有文字節點，新增一個
-        link.appendChild(document.createTextNode(newText));
-    }
-}
-
-/**
  * 判斷 LI 是不是標題
  * @returns headerInfo object or null
  */
@@ -89,11 +70,6 @@ function createGroupDOM(headerItem, headerInfo, contentItems) {
 
     const link = headerItem.querySelector(config.selectors.promptLink);
     if (link) {
-        // 重新讀取最新名稱（不使用 headerInfo 中可能過時的名稱）
-        const latestName = extractTextName(link);
-        // 設定名稱（保留 icon）
-        setTextName(link, latestName);
-
         // 在 link 上阻止原生點擊行為（避免觸發 inspect）
         link.addEventListener('click', (e) => {
             e.preventDefault();
@@ -255,8 +231,11 @@ export function buildCollapsibleGroups(listContainer) {
  */
 export function toggleAllGroups(listContainer, shouldOpen) {
   const details = listContainer.querySelectorAll(`.${config.classNames.group}`);
-  details.forEach(el => el.open = shouldOpen);
-  // 狀態就不一個個存了，下次重建時會自動更新
+  details.forEach(el => {
+      el.open = shouldOpen;
+      state.openGroups[el.dataset.groupKey] = shouldOpen;
+  });
+  saveToPreset().catch(console.error);
 }
 
 /**

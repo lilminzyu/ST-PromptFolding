@@ -367,6 +367,7 @@ function loadMetaInfo() {
         .then(r => r.json())
         .then(m => {
             const el = document.getElementById('prompt-folding-version-info');
+            if (!el) return;
             el.innerHTML = `v${m.version} © <a href="${m.homePage}" target="_blank" rel="noopener" style="color: inherit; opacity: 0.7;">${m.author}</a>`;
         });
 

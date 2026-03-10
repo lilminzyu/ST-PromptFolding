@@ -10,7 +10,6 @@ export const config = {
         promptAsterisk: '.fa-asterisk', // 標題列要隱藏的星號
         listHeader: '.completion_prompt_manager_list_head',
     },
-    storagePrefix: 'mingyu_collapsible_', // 保留，供一次性遷移用
     // CSS class 名稱
     classNames: {
         group: 'mingyu-prompt-group',
@@ -115,7 +114,7 @@ export async function saveToPreset() {
     const name = getCurrentPresetName();
 
     if (_cachedSavePreset) {
-        await _cachedSavePreset(name, oai_settings);
+        await _cachedSavePreset(name, oai_settings, false); // false = 不觸發 UI reload cycle
     } else {
         // Fallback：第一次儲存（還沒有 preset 切換事件觸發過）
         try {
@@ -129,6 +128,10 @@ export async function saveToPreset() {
                 headers: getRequestHeaders(),
                 body: JSON.stringify({ apiId: 'openai', name, preset }),
             });
+            if (!res.ok) {
+                console.error('[PF] saveToPreset fallback: server returned', res.status, res.statusText);
+                return;
+            }
             if (res.ok) {
                 // 同步更新 openai_settings[idx]，確保 export 能讀到最新資料
                 const idx = openai_setting_names[name];
