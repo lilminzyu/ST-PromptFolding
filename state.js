@@ -20,11 +20,8 @@ export const config = {
     defaultDividers: ['=', '-'],
 };
 
-// 獲取當前 preset 名稱
+// 獲取當前 preset 名稱（從 DOM，不依賴全域 oai_settings）
 export function getCurrentPresetName() {
-    if (typeof oai_settings !== 'undefined' && oai_settings.preset_settings_openai) {
-        return oai_settings.preset_settings_openai;
-    }
     const select = document.querySelector('#settings_preset_openai');
     if (select) {
         const selected = select.querySelector(':checked');
@@ -108,25 +105,27 @@ export function getStateForSave() {
 
 // --- 存到 preset JSON ---
 export async function saveToPreset() {
-    if (typeof oai_settings === 'undefined') { console.warn('[PF] saveToPreset: oai_settings undefined'); return; }
-    oai_settings.extensions        = oai_settings.extensions || {};
-    oai_settings.extensions.prompt_folding = getStateForSave();
+    try {
+        const [
+            { oai_settings, getChatCompletionPreset, openai_settings: oaiSettingsArr, openai_setting_names },
+            { getRequestHeaders },
+        ] = await Promise.all([
+            import('../../../../scripts/openai.js'),
+            import('../../../../script.js'),
+        ]);
 
-    const name = getCurrentPresetName();
-    console.log('[PF] saveToPreset start — preset:', name, '| data:', JSON.stringify(oai_settings.extensions.prompt_folding));
+        oai_settings.extensions = oai_settings.extensions || {};
+        oai_settings.extensions.prompt_folding = getStateForSave();
 
-    if (_cachedSavePreset) {
-        console.log('[PF] saveToPreset: using cachedSavePreset');
-        await _cachedSavePreset(name, oai_settings, false); // false = 不觸發 UI reload cycle
-        console.log('[PF] saveToPreset: cachedSavePreset done');
-    } else {
-        console.log('[PF] saveToPreset: using fallback fetch');
-        // Fallback：第一次儲存（還沒有 preset 切換事件觸發過）
-        try {
-            const [{ getChatCompletionPreset, openai_settings: oaiSettings, openai_setting_names }, { getRequestHeaders }] = await Promise.all([
-                import('../../../../scripts/openai.js'),
-                import('../../../../script.js'),
-            ]);
+        const name = getCurrentPresetName();
+        console.log('[PF] saveToPreset — preset:', name, '| data:', JSON.stringify(oai_settings.extensions.prompt_folding));
+
+        if (_cachedSavePreset) {
+            console.log('[PF] saveToPreset: using cachedSavePreset');
+            await _cachedSavePreset(name, oai_settings, false);
+            console.log('[PF] saveToPreset: done');
+        } else {
+            console.log('[PF] saveToPreset: using fallback fetch');
             const preset = getChatCompletionPreset(oai_settings);
             const res = await fetch('/api/presets/save', {
                 method: 'POST',
@@ -137,15 +136,14 @@ export async function saveToPreset() {
                 console.error('[PF] saveToPreset fallback: server returned', res.status, res.statusText);
                 return;
             }
-            // 同步更新 openai_settings[idx]，確保 export 能讀到最新資料
             const idx = openai_setting_names[name];
-            console.log('[PF] saveToPreset fallback: saved OK, idx=', idx, '| preset.extensions:', JSON.stringify(preset.extensions));
-            if (idx !== undefined) Object.assign(oaiSettings[idx], preset);
-        } catch (err) {
-            console.error('[PF] saveToPreset fallback failed:', err);
+            console.log('[PF] saveToPreset fallback: saved OK, idx=', idx);
+            if (idx !== undefined) Object.assign(oaiSettingsArr[idx], preset);
         }
+        log('Saved to preset:', name);
+    } catch (err) {
+        console.error('[PF] saveToPreset failed:', err);
     }
-    log('Saved to preset:', name);
 }
 
 // saveCustomSettings：向下相容，呼叫 saveToPreset（fire-and-forget）

@@ -2,6 +2,7 @@ import { config, state, log, loadFromPreset, saveToPreset, setCachedSavePreset, 
 import { buildCollapsibleGroups, toggleAllGroups } from './prompt-folding.js';
 import { createSettingsPanel, cancelManualSelection, updateSettingsUI } from './settings-ui.js';
 import { eventSource, event_types } from '../../../../script.js';
+import { oai_settings } from '../../../../scripts/openai.js';
 
 let isHooked = false;
 
@@ -182,9 +183,7 @@ function initialize(listContainer) {
     if (!pmWrapper) return;
 
     // 從當前 preset 的 extensions 載入 state
-    if (typeof oai_settings !== 'undefined') {
-        loadFromPreset(oai_settings.extensions?.prompt_folding);
-    }
+    loadFromPreset(oai_settings.extensions?.prompt_folding);
 
     cancelManualSelection();
     log('Initializing Prompt Folding...');
