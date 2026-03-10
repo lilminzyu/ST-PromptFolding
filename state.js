@@ -76,6 +76,7 @@ export function setCachedSavePreset(fn) {
 
 // --- 從 preset extensions 載入 state ---
 export function loadFromPreset(pfData) {
+    console.log('[PF] loadFromPreset called with:', JSON.stringify(pfData));
     // manualHeaders 支援純 UUID 陣列（新格式）或 {uuid,name} 物件陣列（舊格式）
     const rawHeaders = pfData?.manualHeaders ?? [];
     const uuids = rawHeaders.map(h => (typeof h === 'string' ? h : h?.uuid)).filter(Boolean);
@@ -107,15 +108,19 @@ export function getStateForSave() {
 
 // --- 存到 preset JSON ---
 export async function saveToPreset() {
-    if (typeof oai_settings === 'undefined') return;
+    if (typeof oai_settings === 'undefined') { console.warn('[PF] saveToPreset: oai_settings undefined'); return; }
     oai_settings.extensions        = oai_settings.extensions || {};
     oai_settings.extensions.prompt_folding = getStateForSave();
 
     const name = getCurrentPresetName();
+    console.log('[PF] saveToPreset start — preset:', name, '| data:', JSON.stringify(oai_settings.extensions.prompt_folding));
 
     if (_cachedSavePreset) {
+        console.log('[PF] saveToPreset: using cachedSavePreset');
         await _cachedSavePreset(name, oai_settings, false); // false = 不觸發 UI reload cycle
+        console.log('[PF] saveToPreset: cachedSavePreset done');
     } else {
+        console.log('[PF] saveToPreset: using fallback fetch');
         // Fallback：第一次儲存（還沒有 preset 切換事件觸發過）
         try {
             const [{ getChatCompletionPreset, openai_settings: oaiSettings, openai_setting_names }, { getRequestHeaders }] = await Promise.all([
@@ -132,11 +137,10 @@ export async function saveToPreset() {
                 console.error('[PF] saveToPreset fallback: server returned', res.status, res.statusText);
                 return;
             }
-            if (res.ok) {
-                // 同步更新 openai_settings[idx]，確保 export 能讀到最新資料
-                const idx = openai_setting_names[name];
-                if (idx !== undefined) Object.assign(oaiSettings[idx], preset);
-            }
+            // 同步更新 openai_settings[idx]，確保 export 能讀到最新資料
+            const idx = openai_setting_names[name];
+            console.log('[PF] saveToPreset fallback: saved OK, idx=', idx, '| preset.extensions:', JSON.stringify(preset.extensions));
+            if (idx !== undefined) Object.assign(oaiSettings[idx], preset);
         } catch (err) {
             console.error('[PF] saveToPreset fallback failed:', err);
         }
