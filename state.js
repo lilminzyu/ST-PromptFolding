@@ -141,11 +141,12 @@ export async function saveToPreset() {
                 headers: getRequestHeaders(),
                 body: JSON.stringify({ apiId: 'openai', name, preset }),
             });
+            const resBody = await res.text();
+            console.log('[PF] fallback: status=', res.status, 'body=', resBody);
             if (!res.ok) {
                 console.error('[PF] saveToPreset fallback: server returned', res.status, res.statusText);
                 return;
             }
-            console.log('[PF] saveToPreset fallback: saved OK, idx=', idx);
         }
         log('Saved to preset:', name);
     } catch (err) {
