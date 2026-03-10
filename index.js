@@ -1,4 +1,4 @@
-import { config, state, log, loadFromPreset, saveToPreset, setCachedSavePreset } from './state.js';
+import { config, state, log, loadFromPreset, saveToPreset, setCachedSavePreset, getStateForSave } from './state.js';
 import { buildCollapsibleGroups, toggleAllGroups } from './prompt-folding.js';
 import { createSettingsPanel, cancelManualSelection, updateSettingsUI } from './settings-ui.js';
 import { eventSource, event_types } from '../../../../script.js';
@@ -245,6 +245,13 @@ eventSource.on(event_types.OAI_PRESET_CHANGED_AFTER, () => {
         buildCollapsibleGroups(listContainer);
         updateSettingsUI();
     }
+});
+
+// 匯出 preset 檔案：注入當前 state
+eventSource.on(event_types.OAI_PRESET_EXPORT_READY, (preset) => {
+    preset.extensions ??= {};
+    preset.extensions.prompt_folding = getStateForSave();
+    log('Folding config injected into export');
 });
 
 // 匯入外部 preset 檔案：讀 prompt_folding 並存進當前 preset

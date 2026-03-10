@@ -119,16 +119,21 @@ export async function saveToPreset() {
     } else {
         // Fallback：第一次儲存（還沒有 preset 切換事件觸發過）
         try {
-            const [{ getChatCompletionPreset }, { getRequestHeaders }] = await Promise.all([
+            const [{ getChatCompletionPreset, openai_settings: oaiSettings, openai_setting_names }, { getRequestHeaders }] = await Promise.all([
                 import('../../../../scripts/openai.js'),
                 import('../../../../script.js'),
             ]);
             const preset = getChatCompletionPreset(oai_settings);
-            await fetch('/api/presets/save', {
+            const res = await fetch('/api/presets/save', {
                 method: 'POST',
                 headers: getRequestHeaders(),
                 body: JSON.stringify({ apiId: 'openai', name, preset }),
             });
+            if (res.ok) {
+                // 同步更新 openai_settings[idx]，確保 export 能讀到最新資料
+                const idx = openai_setting_names[name];
+                if (idx !== undefined) Object.assign(oaiSettings[idx], preset);
+            }
         } catch (err) {
             console.error('[PF] saveToPreset fallback failed:', err);
         }
