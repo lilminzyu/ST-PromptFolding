@@ -107,7 +107,7 @@ export function getStateForSave() {
 export async function saveToPreset() {
     try {
         const [
-            { oai_settings, getChatCompletionPreset, openai_settings: oaiSettingsArr, openai_setting_names },
+            { oai_settings, openai_settings: oaiSettingsArr, openai_setting_names },
             { getRequestHeaders },
         ] = await Promise.all([
             import('../../../../scripts/openai.js'),
@@ -127,10 +127,15 @@ export async function saveToPreset() {
             console.log('[PF] saveToPreset: done');
         } else {
             console.log('[PF] saveToPreset: using fallback fetch');
-            const preset = getChatCompletionPreset(oai_settings);
-            // getChatCompletionPreset 可能不包含 extensions，強制補上
-            preset.extensions = oai_settings.extensions ?? {};
-            console.log('[PF] fallback: preset.extensions =', JSON.stringify(preset.extensions));
+            const idx = openai_setting_names[name];
+            if (idx === undefined) {
+                console.error('[PF] saveToPreset fallback: preset not found in memory:', name);
+                return;
+            }
+            // 直接用 openai_settings[idx]（disk 原始格式），只更新 extensions.prompt_folding
+            const preset = oaiSettingsArr[idx];
+            preset.extensions = preset.extensions || {};
+            preset.extensions.prompt_folding = getStateForSave();
             const res = await fetch('/api/presets/save', {
                 method: 'POST',
                 headers: getRequestHeaders(),
@@ -140,9 +145,7 @@ export async function saveToPreset() {
                 console.error('[PF] saveToPreset fallback: server returned', res.status, res.statusText);
                 return;
             }
-            const idx = openai_setting_names[name];
             console.log('[PF] saveToPreset fallback: saved OK, idx=', idx);
-            if (idx !== undefined) Object.assign(oaiSettingsArr[idx], preset);
         }
         log('Saved to preset:', name);
     } catch (err) {
