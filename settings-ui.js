@@ -4,6 +4,7 @@ import { callGenericPopup, POPUP_TYPE } from '../../../popup.js';
 
 let listContainerRef = null;
 let selectionSnapshot = null;
+let foldRestoreInfo = null;
 
 export async function createSettingsPanel(pmContainer, listContainer) {
     if (document.getElementById('prompt-folding-settings')) return;
@@ -38,11 +39,17 @@ function initLogic() {
         startSelectBtn: document.getElementById('prompt-folding-start-select'),
         copyFromPresetSelect: document.getElementById('prompt-folding-copy-from-preset'),
         copyConfigBtn: document.getElementById('prompt-folding-copy-config-btn'),
+        foldSettingsCheckbox: document.getElementById('prompt-folding-fold-settings'),
     };
 
     // 填入當前設定
     els.textarea.value = state.customDividers.join('\n');
     els.debugCheckbox.checked = state.debugMode;
+
+    // 折設定（從 localStorage 讀取）
+    const foldSettingsEnabled = localStorage.getItem('pf-fold-settings') === '1';
+    els.foldSettingsCheckbox.checked = foldSettingsEnabled;
+    if (foldSettingsEnabled) applyFoldSettings(true);
 
     const currentRadio = document.querySelector(`input[name="folding-mode"][value="${state.foldingMode}"]`);
     if (currentRadio) currentRadio.checked = true;
@@ -52,6 +59,13 @@ function initLogic() {
     }
 
     updateModeUI();
+
+    // 折設定開關
+    els.foldSettingsCheckbox.onchange = () => {
+        const checked = els.foldSettingsCheckbox.checked;
+        localStorage.setItem('pf-fold-settings', checked ? '1' : '0');
+        applyFoldSettings(checked);
+    };
 
     // Debug 開關
     els.debugCheckbox.onchange = () => {
@@ -267,6 +281,59 @@ export function cancelManualSelection() {
     toastr.info('已取消，還原至修改前的選擇');
 }
 
+// 折設定：把 #range_block_openai 整體 + #openai_settings 的前段折進一個 <details>
+export function applyFoldSettings(fold) {
+    const DETAILS_ID = 'pf-settings-fold-details';
+
+    if (fold) {
+        if (document.getElementById(DETAILS_ID)) return;
+
+        const rangeBlock = document.getElementById('range_block_openai');
+        if (!rangeBlock) return;
+
+        const details = document.createElement('details');
+        details.id = DETAILS_ID;
+
+        const summary = document.createElement('summary');
+        summary.textContent = '詳細設定摺疊';
+        summary.className = 'pf-fold-settings-summary';
+        details.appendChild(summary);
+
+        // 收集要移入的元素（依序）
+        const targets = [{ el: rangeBlock, parent: rangeBlock.parentElement, next: rangeBlock.nextSibling }];
+
+        const openaiSettings = document.getElementById('openai_settings');
+        if (openaiSettings) {
+            const firstDiv = openaiSettings.querySelector(':scope > div');
+            const firstRangeBlockMt1 = openaiSettings.querySelector(':scope > div.range-block.m-t-1');
+            if (firstDiv) targets.push({ el: firstDiv, parent: openaiSettings, next: firstDiv.nextSibling });
+            if (firstRangeBlockMt1) targets.push({ el: firstRangeBlockMt1, parent: openaiSettings, next: firstRangeBlockMt1.nextSibling });
+        }
+
+        // 記住還原資訊
+        foldRestoreInfo = targets.map(t => ({ el: t.el, parent: t.parent, next: t.next }));
+
+        // 插入 details 到 rangeBlock 原來的位置，再把所有目標移入
+        rangeBlock.parentElement.insertBefore(details, rangeBlock);
+        targets.forEach(t => details.appendChild(t.el));
+    } else {
+        const details = document.getElementById(DETAILS_ID);
+        if (!details || !foldRestoreInfo) return;
+
+        // 反序還原（避免 nextSibling 參照失效）
+        foldRestoreInfo.slice().reverse().forEach(({ el, parent, next }) => {
+            try {
+                parent.insertBefore(el, next);
+            } catch {
+                parent.appendChild(el);
+            }
+        });
+
+        foldRestoreInfo = null;
+        details.remove();
+    }
+}
+
 // preset 切換後同步 UI 顯示
 export function updateSettingsUI() {
     const textarea = document.getElementById('prompt-folding-dividers');
@@ -276,6 +343,11 @@ export function updateSettingsUI() {
 
     const debugCheckbox = document.getElementById('prompt-folding-debug');
     if (debugCheckbox) debugCheckbox.checked = state.debugMode;
+
+    const foldSettingsCheckbox = document.getElementById('prompt-folding-fold-settings');
+    if (foldSettingsCheckbox) {
+        foldSettingsCheckbox.checked = localStorage.getItem('pf-fold-settings') === '1';
+    }
 
     const currentRadio = document.querySelector(`input[name="folding-mode"][value="${state.foldingMode}"]`);
     if (currentRadio) currentRadio.checked = true;

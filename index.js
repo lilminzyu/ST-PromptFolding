@@ -1,6 +1,6 @@
 import { config, state, log, loadFromPreset, saveToPreset, setCachedSavePreset, getStateForSave, getCurrentPresetFoldingData } from './state.js';
 import { buildCollapsibleGroups, toggleAllGroups } from './prompt-folding.js';
-import { createSettingsPanel, cancelManualSelection, updateSettingsUI } from './settings-ui.js';
+import { createSettingsPanel, cancelManualSelection, updateSettingsUI, applyFoldSettings } from './settings-ui.js';
 import { eventSource, event_types } from '../../../../script.js';
 
 let isHooked = false;
@@ -189,6 +189,7 @@ async function initialize(listContainer) {
     log('Initializing Prompt Folding...');
 
     createSettingsPanel(pmWrapper, listContainer);
+    if (localStorage.getItem('pf-fold-settings') === '1') applyFoldSettings(true);
     setupToggleButton(listContainer);
     buildCollapsibleGroups(listContainer);
     createListContentObserver(listContainer);
@@ -243,6 +244,7 @@ eventSource.on(event_types.OAI_PRESET_CHANGED_AFTER, () => {
     if (listContainer) {
         buildCollapsibleGroups(listContainer);
         updateSettingsUI();
+        if (localStorage.getItem('pf-fold-settings') === '1') applyFoldSettings(true);
     }
 });
 

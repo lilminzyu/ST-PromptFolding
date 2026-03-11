@@ -6,59 +6,68 @@
 /* 1. 群組外層容器 (<details>)
 ------------------------------------------------------------ */
 .mingyu-prompt-group {
-    list-style-type: none !important; /* 移除原生列表樣式 */
-    margin-bottom: 2px; /* 群組間加點間距 */
+    list-style-type: none !important;
+    /* 移除原生列表樣式 */
+    margin-bottom: 2px;
+    /* 群組間加點間距 */
 }
 
 /* 2. 可點擊的標題區域 (<summary>)
 ------------------------------------------------------------ */
-.mingyu-prompt-group > summary {
-    display: flex; /* 使用 Flexbox 來對齊箭頭和標題文字 */
-    align-items: center; /* 垂直置中 */
+.mingyu-prompt-group>summary {
+    display: flex;
+    /* 使用 Flexbox 來對齊箭頭和標題文字 */
+    align-items: center;
+    /* 垂直置中 */
     position: relative;
     /* cursor: pointer;  <-- 已由 JS 控制，只有文字可點擊 */
-    list-style: none; /* 移除原生箭頭 */
-    user-select: none; /* 防止點擊時選取文字 */
+    list-style: none;
+    /* 移除原生箭頭 */
+    user-select: none;
+    /* 防止點擊時選取文字 */
 }
 
 /* 讓作為標題的 LI 內的連結有手形游標 */
-.mingyu-prompt-group > summary li.is-group-header a.prompt-manager-inspect-action {
+.mingyu-prompt-group>summary li.is-group-header a.prompt-manager-inspect-action {
     cursor: pointer;
 }
 
 /* 滑鼠懸停時加上底線，提示可點擊 */
-.mingyu-prompt-group > summary li.is-group-header a.prompt-manager-inspect-action:hover {
+.mingyu-prompt-group>summary li.is-group-header a.prompt-manager-inspect-action:hover {
     text-decoration: underline;
 }
 
 /* 移除 Webkit/Blink 和標準瀏覽器的原生箭頭 */
-.mingyu-prompt-group > summary::-webkit-details-marker,
-.mingyu-prompt-group > summary::marker {
+.mingyu-prompt-group>summary::-webkit-details-marker,
+.mingyu-prompt-group>summary::marker {
     display: none;
 }
 
 /* 3. 自訂的箭頭圖示
 ------------------------------------------------------------ */
-.mingyu-prompt-group > summary::before {
-    content: '\f101'; /* fa-angles-right */
+.mingyu-prompt-group>summary::before {
+    content: '\f101';
+    /* fa-angles-right */
     font-family: 'Font Awesome 6 Free';
     font-weight: 900;
     /* font-size: 0.75em; */
     color: #aaa;
     margin: 4px;
     transition: transform 0.2s ease-in-out;
-    display: inline-block; /* 確保 transform 生效 */
-    flex-shrink: 0; /* 防止箭頭被壓縮 */
+    display: inline-block;
+    /* 確保 transform 生效 */
+    flex-shrink: 0;
+    /* 防止箭頭被壓縮 */
 }
 
 /* 當群組展開時，旋轉箭頭 */
-.mingyu-prompt-group[open] > summary::before {
+.mingyu-prompt-group[open]>summary::before {
     transform: rotate(90deg);
 }
 
 /* 4. 作為標題的那個 LI 項目
 ------------------------------------------------------------ */
-.mingyu-prompt-group > summary > li.completion_prompt_manager_prompt {
+.mingyu-prompt-group>summary>li.completion_prompt_manager_prompt {
     /* 讓 LI 填滿 summary 的剩餘空間 */
     flex: 1;
     display: inline-flex;
@@ -69,7 +78,8 @@
 /* 5. 標題內的星號圖示隱藏
 ------------------------------------------------------------ */
 .mingyu-prompt-group li.is-group-header .fa-asterisk {
-    visibility: hidden !important; /* 隱藏但保留在 DOM 中，不影響其他插件的選擇器 */
+    visibility: hidden !important;
+    /* 隱藏但保留在 DOM 中，不影響其他插件的選擇器 */
     width: 0 !important;
     height: 0 !important;
     margin: 0 !important;
@@ -81,8 +91,10 @@
 .mingyu-prompt-group-content {
     padding-left: 20px;
     border-left: 1px solid #444;
-    margin-left: 4px; /* 邊線和箭頭視覺上對齊 */
-    margin-top: 5px; /* 內容和標題之間加點間距 */
+    margin-left: 4px;
+    /* 邊線和箭頭視覺上對齊 */
+    margin-top: 5px;
+    /* 內容和標題之間加點間距 */
 }
 
 /* 7. 拖曳狀態的視覺回饋
@@ -123,18 +135,19 @@ li.completion_prompt_manager_prompt[draggable="true"]:hover {
 
 /* 11. Hover 效果
 ------------------------------------------------------------ */
-.mingyu-prompt-group > summary:hover {
+.mingyu-prompt-group>summary:hover {
     background-color: rgba(255, 255, 255, 0.05);
     border-radius: 4px;
 }
 
-.mingyu-prompt-group > summary:hover::before {
-    color: #fff; /* 懸停時箭頭變亮 */
+.mingyu-prompt-group>summary:hover::before {
+    color: #fff;
+    /* 懸停時箭頭變亮 */
 }
 
 /* 12. 焦點狀態
 ------------------------------------------------------------ */
-.mingyu-prompt-group > summary:focus {
+.mingyu-prompt-group>summary:focus {
     outline: 2px solid #4a9eff;
     outline-offset: 2px;
     border-radius: 4px;
@@ -151,6 +164,7 @@ li.completion_prompt_manager_prompt[draggable="true"]:hover {
         opacity: 0;
         transform: translateY(-10px);
     }
+
     to {
         opacity: 1;
         transform: translateY(0);
@@ -160,7 +174,7 @@ li.completion_prompt_manager_prompt[draggable="true"]:hover {
 /* 14. 深色主題適配
 ------------------------------------------------------------ */
 @media (prefers-color-scheme: light) {
-    .mingyu-prompt-group > summary::before {
+    .mingyu-prompt-group>summary::before {
         color: #666;
     }
 
@@ -168,7 +182,7 @@ li.completion_prompt_manager_prompt[draggable="true"]:hover {
         border-left-color: #ddd;
     }
 
-    .mingyu-prompt-group > summary:hover {
+    .mingyu-prompt-group>summary:hover {
         background-color: rgba(0, 0, 0, 0.05);
     }
 
@@ -190,7 +204,8 @@ li.completion_prompt_manager_prompt[draggable="true"]:hover {
     display: flex;
     gap: 6px;
     align-items: center;
-    margin-left: auto; /* 推到最右邊 */
+    margin-left: auto;
+    /* 推到最右邊 */
 }
 
 .mingyu-settings-toggle,
@@ -231,7 +246,8 @@ li.completion_prompt_manager_prompt[draggable="true"]:hover {
 /* 16. 設定面板樣式
 ------------------------------------------------------------ */
 #prompt-folding-settings {
-    position: relative; /* 為了讓絕對定位的子元素 (如版本資訊) 相對此容器定位 */
+    position: relative;
+    /* 為了讓絕對定位的子元素 (如版本資訊) 相對此容器定位 */
     border: 1px solid rgba(255, 255, 255, 0.1);
     border-radius: 8px;
     padding: 15px;
@@ -299,7 +315,7 @@ li.completion_prompt_manager_prompt[draggable="true"]:hover {
 
 /* 18. 群組禁用時的子項目樣式
 ------------------------------------------------------------ */
-li.completion_prompt_manager_prompt.prompt-controlled-by-disabled-group > span:not(.prompt_manager_prompt_tokens) {
+li.completion_prompt_manager_prompt.prompt-controlled-by-disabled-group>span:not(.prompt_manager_prompt_tokens) {
     filter: grayscale(80%);
     opacity: 0.6;
 }
@@ -314,7 +330,8 @@ li.completion_prompt_manager_prompt:has(.mingyu-header-checkbox) {
 .mingyu-header-checkbox {
     cursor: pointer;
     margin: 0;
-    justify-self: center; /* 在自己的欄位裡置中 */
+    justify-self: center;
+    /* 在自己的欄位裡置中 */
     align-self: center;
 }
 
@@ -330,7 +347,8 @@ li.completion_prompt_manager_prompt:has(.mingyu-header-checkbox) {
     justify-content: center;
     padding: 12px 0;
     z-index: 100;
-    pointer-events: none; /* 讓點擊穿透 wrapper 空白區 */
+    pointer-events: none;
+    /* 讓點擊穿透 wrapper 空白區 */
 }
 
 #prompt-folding-float-panel {
@@ -372,4 +390,20 @@ li.completion_prompt_manager_prompt:has(.mingyu-header-checkbox) {
 
 #prompt-folding-float-cancel:hover {
     background: rgba(255, 80, 80, 1) !important;
+}
+
+/* 折設定 - API 參數區塊摺疊
+------------------------------------------------------------ */
+.pf-fold-settings-summary {
+    text-align: center;
+    cursor: pointer;
+    padding: 6px 0 0 0;
+    opacity: 0.6;
+    font-size: 12px;
+    user-select: none;
+}
+
+.pf-fold-settings-summary::-webkit-details-marker,
+.pf-fold-settings-summary::marker {
+    display: none;
 }

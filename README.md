@@ -9,11 +9,12 @@ An extension that organizes your SillyTavern Prompt Manager into clean, collapsi
 ## Key Features
 
 - **Flexible Grouping**: Choose between automatic marker-based grouping or manual selection mode.
-- **Manual Selection Mode** **(New!)**: Click checkboxes to manually select which prompts become folder headers - no need for special naming conventions.
+- **Manual Selection Mode**: Click checkboxes to manually select which prompts become folder headers - no need for special naming conventions.
 - **Group Control Logic**:
   - **Fold/Unfold**: Click the header text to toggle visibility.
-  - **Enable/Disable**: **(New in v2.2+)** Disabling a group header prompt will automatically **filter out all prompts inside that group**. They will not be sent to the AI. This allows for quick context switching.
-- **Cross-Preset Config Copy** **(New in v2.4+)**: Copy folding configurations from other Presets with smart name matching, making it easy to migrate settings when Preset authors update their presets.
+  - **Enable/Disable**: Disabling a group header prompt will automatically **filter out all prompts inside that group**. They will not be sent to the AI. This allows for quick context switching.
+- **Cross-Preset Config Copy**: Copy folding configurations from other Presets with smart UUID matching, making it easy to migrate settings when Preset authors update their presets.
+- **Fold Settings Panel**: A checkbox to collapse the OpenAI API parameter sliders (context size, temperature, etc.) into a single `<details>` block, keeping your workspace tidy. State is saved to localStorage independently of presets.
 - **Three Folding Modes**: Supports "Manual Selection" (recommended), "Standard Mode", and "Sandwich Mode" to suit your organization style.
 - **Batch Actions**: Expand All / Collapse All with a single click.
 - **Customizable**: Define your own header markers via settings (for Standard/Sandwich modes).
@@ -25,7 +26,6 @@ An extension that organizes your SillyTavern Prompt Manager into clean, collapsi
 You can switch between modes instantly in the settings panel:
 
 ### 1. Manual Selection Mode (Recommended) 👍
-*New in v2.3+*
 
 The most flexible mode. Click "Start Selecting Folders" in settings, then check the boxes next to prompts you want to use as folder headers. No special naming required!
 
@@ -71,14 +71,19 @@ Requires a pair of identical headers. It groups the opening header, the closing 
 3.  **Toolbar Buttons**:
       - `⬇️` / `⬆️`: Expand or Collapse all groups.
       - `🔴` / `🟢`: Toggle the extension functionality on/off (does not delete prompts, just removes grouping).
-      - `⚙️`: Open settings to switch modes, customize dividers, or toggle debug mode.
+      - `⚙️`: Open settings to switch modes, customize dividers, toggle debug mode, or fold the API settings panel.
 
-4.  **Cross-Preset Config Copy** **(New in v2.4+)**:
+4.  **Cross-Preset Config Copy**:
       - Open settings panel (⚙️ button)
       - In the "Copy Config from Other Preset" section, select a source Preset
       - Click the "Copy" button
-      - The system will automatically match prompts by name and apply the folding configuration to your current Preset
-      - **Use case**: When a Preset author updates their preset (e.g., v1.0 to v2.0), UUIDs change but prompt names stay the same - you can quickly migrate your folding settings
+      - The system will automatically match prompts by UUID and apply the folding configuration to your current Preset
+
+5.  **Fold Settings Panel**:
+      - Open settings panel (⚙️ button)
+      - Check the "折設定" (Fold Settings) checkbox
+      - The OpenAI API parameter sliders (context size, temperature, penalties, etc.) will collapse into a single expandable block
+      - This setting persists across Preset switches (saved to localStorage)
 
 ### Legacy Modes (Standard/Sandwich)
 
