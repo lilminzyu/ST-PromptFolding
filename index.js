@@ -1,8 +1,7 @@
-import { config, state, log, loadFromPreset, saveToPreset, setCachedSavePreset, getStateForSave } from './state.js';
+import { config, state, log, loadFromPreset, saveToPreset, setCachedSavePreset, getStateForSave, getCurrentPresetFoldingData } from './state.js';
 import { buildCollapsibleGroups, toggleAllGroups } from './prompt-folding.js';
 import { createSettingsPanel, cancelManualSelection, updateSettingsUI } from './settings-ui.js';
 import { eventSource, event_types } from '../../../../script.js';
-import { oai_settings } from '../../../../scripts/openai.js';
 
 let isHooked = false;
 
@@ -178,12 +177,13 @@ function updateGroupHeaderStatus(pm) {
 
 // --- 4. 初始化與進入點 ---
 
-function initialize(listContainer) {
+async function initialize(listContainer) {
     const pmWrapper = listContainer.closest('#completion_prompt_manager');
     if (!pmWrapper) return;
 
-    // 從當前 preset 的 extensions 載入 state
-    loadFromPreset(oai_settings.extensions?.prompt_folding);
+    // 從磁碟 preset 原始資料載入 state（oai_settings.extensions 在頁面載入時可能為空）
+    const pfData = await getCurrentPresetFoldingData();
+    loadFromPreset(pfData);
 
     cancelManualSelection();
     log('Initializing Prompt Folding...');

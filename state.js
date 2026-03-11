@@ -159,6 +159,20 @@ export function saveCustomSettings() {
     saveToPreset().catch(err => console.error('[PF] Save failed:', err));
 }
 
+// --- 從 in-memory preset 讀取 folding data（頁面載入時用）---
+export async function getCurrentPresetFoldingData() {
+    try {
+        const { oai_settings, openai_settings, openai_setting_names } = await import('../../../../scripts/openai.js');
+        const name = oai_settings.preset_settings_openai || getCurrentPresetName();
+        const idx = openai_setting_names[name];
+        if (idx === undefined) return null;
+        return openai_settings[idx]?.extensions?.prompt_folding ?? null;
+    } catch (err) {
+        console.error('[PF] getCurrentPresetFoldingData failed:', err);
+        return null;
+    }
+}
+
 // --- 列出所有 preset 名稱（從 DOM dropdown）---
 export function getAllPresetNames() {
     return Array.from(
