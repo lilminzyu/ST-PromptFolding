@@ -295,7 +295,7 @@ export function applyFoldSettings(fold) {
         details.id = DETAILS_ID;
 
         const summary = document.createElement('summary');
-        summary.textContent = '詳細設定';
+        summary.textContent = '詳細設定摺疊';
         summary.className = 'pf-fold-settings-summary';
         details.appendChild(summary);
 
