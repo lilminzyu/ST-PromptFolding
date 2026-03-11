@@ -38,11 +38,17 @@ function initLogic() {
         startSelectBtn: document.getElementById('prompt-folding-start-select'),
         copyFromPresetSelect: document.getElementById('prompt-folding-copy-from-preset'),
         copyConfigBtn: document.getElementById('prompt-folding-copy-config-btn'),
+        foldSettingsCheckbox: document.getElementById('prompt-folding-fold-settings'),
     };
 
     // 填入當前設定
     els.textarea.value = state.customDividers.join('\n');
     els.debugCheckbox.checked = state.debugMode;
+
+    // 折設定（從 localStorage 讀取）
+    const foldSettingsEnabled = localStorage.getItem('pf-fold-settings') === '1';
+    els.foldSettingsCheckbox.checked = foldSettingsEnabled;
+    if (foldSettingsEnabled) applyFoldSettings(true);
 
     const currentRadio = document.querySelector(`input[name="folding-mode"][value="${state.foldingMode}"]`);
     if (currentRadio) currentRadio.checked = true;
@@ -52,6 +58,13 @@ function initLogic() {
     }
 
     updateModeUI();
+
+    // 折設定開關
+    els.foldSettingsCheckbox.onchange = () => {
+        const checked = els.foldSettingsCheckbox.checked;
+        localStorage.setItem('pf-fold-settings', checked ? '1' : '0');
+        applyFoldSettings(checked);
+    };
 
     // Debug 開關
     els.debugCheckbox.onchange = () => {
@@ -267,6 +280,48 @@ export function cancelManualSelection() {
     toastr.info('已取消，還原至修改前的選擇');
 }
 
+// 折設定：摺疊/還原 #range_block_openai 中的 API 參數區塊
+export function applyFoldSettings(fold) {
+    const container = document.getElementById('range_block_openai');
+    if (!container) return;
+
+    const DETAILS_ID = 'pf-settings-fold-details';
+
+    if (fold) {
+        if (container.querySelector(`#${DETAILS_ID}`)) return;
+
+        const details = document.createElement('details');
+        details.id = DETAILS_ID;
+
+        const summary = document.createElement('summary');
+        summary.textContent = '詳細設定';
+        summary.className = 'pf-fold-settings-summary';
+        details.appendChild(summary);
+
+        // 收集 .inline-drawer.m-t-1 之前的所有直接子元素
+        const children = Array.from(container.children);
+        const stopEl = container.querySelector(':scope > .inline-drawer.m-t-1');
+        const toWrap = [];
+        for (const child of children) {
+            if (child === stopEl) break;
+            toWrap.push(child);
+        }
+
+        container.insertBefore(details, toWrap[0]);
+        toWrap.forEach(el => details.appendChild(el));
+    } else {
+        const details = container.querySelector(`#${DETAILS_ID}`);
+        if (!details) return;
+
+        const fragment = document.createDocumentFragment();
+        Array.from(details.children).forEach(child => {
+            if (child.tagName !== 'SUMMARY') fragment.appendChild(child);
+        });
+        container.insertBefore(fragment, details);
+        details.remove();
+    }
+}
+
 // preset 切換後同步 UI 顯示
 export function updateSettingsUI() {
     const textarea = document.getElementById('prompt-folding-dividers');
@@ -276,6 +331,11 @@ export function updateSettingsUI() {
 
     const debugCheckbox = document.getElementById('prompt-folding-debug');
     if (debugCheckbox) debugCheckbox.checked = state.debugMode;
+
+    const foldSettingsCheckbox = document.getElementById('prompt-folding-fold-settings');
+    if (foldSettingsCheckbox) {
+        foldSettingsCheckbox.checked = localStorage.getItem('pf-fold-settings') === '1';
+    }
 
     const currentRadio = document.querySelector(`input[name="folding-mode"][value="${state.foldingMode}"]`);
     if (currentRadio) currentRadio.checked = true;

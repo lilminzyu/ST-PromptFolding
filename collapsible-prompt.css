@@ -373,3 +373,20 @@ li.completion_prompt_manager_prompt:has(.mingyu-header-checkbox) {
 #prompt-folding-float-cancel:hover {
     background: rgba(255, 80, 80, 1) !important;
 }
+
+/* 折設定 - API 參數區塊摺疊
+------------------------------------------------------------ */
+.pf-fold-settings-summary {
+    text-align: center;
+    cursor: pointer;
+    padding: 6px 0;
+    opacity: 0.6;
+    font-size: 12px;
+    user-select: none;
+    list-style: none;
+}
+
+.pf-fold-settings-summary::-webkit-details-marker,
+.pf-fold-settings-summary::marker {
+    display: none;
+}
