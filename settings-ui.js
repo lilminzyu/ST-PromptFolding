@@ -4,6 +4,7 @@ import { callGenericPopup, POPUP_TYPE } from '../../../popup.js';
 
 let listContainerRef = null;
 let selectionSnapshot = null;
+let foldRestoreInfo = null;
 
 export async function createSettingsPanel(pmContainer, listContainer) {
     if (document.getElementById('prompt-folding-settings')) return;
@@ -280,15 +281,15 @@ export function cancelManualSelection() {
     toastr.info('已取消，還原至修改前的選擇');
 }
 
-// 折設定：摺疊/還原 #range_block_openai 中的 API 參數區塊
+// 折設定：把 #range_block_openai 整體 + #openai_settings 的前段折進一個 <details>
 export function applyFoldSettings(fold) {
-    const container = document.getElementById('range_block_openai');
-    if (!container) return;
-
     const DETAILS_ID = 'pf-settings-fold-details';
 
     if (fold) {
-        if (container.querySelector(`#${DETAILS_ID}`)) return;
+        if (document.getElementById(DETAILS_ID)) return;
+
+        const rangeBlock = document.getElementById('range_block_openai');
+        if (!rangeBlock) return;
 
         const details = document.createElement('details');
         details.id = DETAILS_ID;
@@ -298,26 +299,37 @@ export function applyFoldSettings(fold) {
         summary.className = 'pf-fold-settings-summary';
         details.appendChild(summary);
 
-        // 收集 .inline-drawer.m-t-1 之前的所有直接子元素
-        const children = Array.from(container.children);
-        const stopEl = container.querySelector(':scope > .inline-drawer.m-t-1');
-        const toWrap = [];
-        for (const child of children) {
-            if (child === stopEl) break;
-            toWrap.push(child);
+        // 收集要移入的元素（依序）
+        const targets = [{ el: rangeBlock, parent: rangeBlock.parentElement, next: rangeBlock.nextSibling }];
+
+        const openaiSettings = document.getElementById('openai_settings');
+        if (openaiSettings) {
+            const firstDiv = openaiSettings.querySelector(':scope > div');
+            const firstRangeBlockMt1 = openaiSettings.querySelector(':scope > div.range-block.m-t-1');
+            if (firstDiv) targets.push({ el: firstDiv, parent: openaiSettings, next: firstDiv.nextSibling });
+            if (firstRangeBlockMt1) targets.push({ el: firstRangeBlockMt1, parent: openaiSettings, next: firstRangeBlockMt1.nextSibling });
         }
 
-        container.insertBefore(details, toWrap[0]);
-        toWrap.forEach(el => details.appendChild(el));
-    } else {
-        const details = container.querySelector(`#${DETAILS_ID}`);
-        if (!details) return;
+        // 記住還原資訊
+        foldRestoreInfo = targets.map(t => ({ el: t.el, parent: t.parent, next: t.next }));
 
-        const fragment = document.createDocumentFragment();
-        Array.from(details.children).forEach(child => {
-            if (child.tagName !== 'SUMMARY') fragment.appendChild(child);
+        // 插入 details 到 rangeBlock 原來的位置，再把所有目標移入
+        rangeBlock.parentElement.insertBefore(details, rangeBlock);
+        targets.forEach(t => details.appendChild(t.el));
+    } else {
+        const details = document.getElementById(DETAILS_ID);
+        if (!details || !foldRestoreInfo) return;
+
+        // 反序還原（避免 nextSibling 參照失效）
+        foldRestoreInfo.slice().reverse().forEach(({ el, parent, next }) => {
+            try {
+                parent.insertBefore(el, next);
+            } catch {
+                parent.appendChild(el);
+            }
         });
-        container.insertBefore(fragment, details);
+
+        foldRestoreInfo = null;
         details.remove();
     }
 }
