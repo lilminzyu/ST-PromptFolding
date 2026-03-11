@@ -91,6 +91,21 @@ export function loadFromPreset(pfData) {
     log('loadFromPreset:', pfData ? `mode=${state.foldingMode}, headers=${uuids.length}` : 'no data, using defaults');
 }
 
+// --- 正規化任意格式的 pfData 為新格式（清除 version/sourcePreset，統一 manualHeaders 為純 UUID）---
+function normalizePfData(pfData) {
+    if (!pfData) return null;
+    const rawHeaders = pfData.manualHeaders ?? [];
+    const uuids = rawHeaders.map(h => (typeof h === 'string' ? h : h?.uuid)).filter(Boolean);
+    return {
+        openStates:     pfData.openStates     ?? {},
+        featureEnabled: pfData.featureEnabled  ?? true,
+        foldingMode:    pfData.foldingMode     ?? 'manual',
+        customDividers: pfData.customDividers  ?? [...config.defaultDividers],
+        debugMode:      pfData.debugMode       ?? false,
+        manualHeaders:  uuids,
+    };
+}
+
 // --- 序列化 state 為可存進 preset 的格式 ---
 export function getStateForSave() {
     return {
@@ -114,12 +129,21 @@ export async function saveToPreset() {
             import('../../../../script.js'),
         ]);
 
-        oai_settings.extensions = oai_settings.extensions || {};
-        oai_settings.extensions.prompt_folding = getStateForSave();
+        const pfData = getStateForSave();
 
-        // 優先用 oai_settings 本身的名稱，和 ST 內部保持一致
+        // 同步寫入 oai_settings（runtime）
+        oai_settings.extensions = oai_settings.extensions || {};
+        oai_settings.extensions.prompt_folding = pfData;
+
+        // 同步寫入 openai_settings[idx]（in-memory preset 原始物件），確保兩處一致
         const name = oai_settings.preset_settings_openai || getCurrentPresetName();
-        console.log('[PF] saveToPreset — preset:', name, '| data:', JSON.stringify(oai_settings.extensions.prompt_folding));
+        const idx = openai_setting_names[name];
+        if (idx !== undefined) {
+            oaiSettingsArr[idx].extensions = oaiSettingsArr[idx].extensions || {};
+            oaiSettingsArr[idx].extensions.prompt_folding = pfData;
+        }
+
+        console.log('[PF] saveToPreset — preset:', name, '| data:', JSON.stringify(pfData));
 
         if (_cachedSavePreset) {
             console.log('[PF] saveToPreset: using cachedSavePreset');
@@ -127,19 +151,14 @@ export async function saveToPreset() {
             console.log('[PF] saveToPreset: done');
         } else {
             console.log('[PF] saveToPreset: using fallback fetch');
-            const idx = openai_setting_names[name];
             if (idx === undefined) {
                 console.error('[PF] saveToPreset fallback: preset not found in memory:', name);
                 return;
             }
-            // 直接用 openai_settings[idx]（disk 原始格式），只更新 extensions.prompt_folding
-            const preset = oaiSettingsArr[idx];
-            preset.extensions = preset.extensions || {};
-            preset.extensions.prompt_folding = getStateForSave();
             const res = await fetch('/api/presets/save', {
                 method: 'POST',
                 headers: getRequestHeaders(),
-                body: JSON.stringify({ apiId: 'openai', name, preset }),
+                body: JSON.stringify({ apiId: 'openai', name, preset: oaiSettingsArr[idx] }),
             });
             const resBody = await res.text();
             console.log('[PF] fallback: status=', res.status, 'body=', resBody);
@@ -181,20 +200,22 @@ export function getAllPresetNames() {
 }
 
 // --- 取得指定 preset 的 folding config（供 copy 功能用）---
+// 回傳值永遠是新格式（等同 getStateForSave 結構），舊格式會經 loadFromPreset 正規化
 export async function exportConfigFromPreset(presetName) {
     const currentName = getCurrentPresetName();
 
+    // 當前 preset：直接從 runtime state 取（已是新格式）
     if (presetName === currentName) {
-        return { ...getStateForSave(), sourcePreset: presetName };
+        return getStateForSave();
     }
 
-    // 從 ST in-memory globals 讀取
+    // 其他 preset：從 in-memory 讀取，經 normalizePfData 正規化
     try {
         const { openai_settings, openai_setting_names } = await import('../../../../scripts/openai.js');
         const idx        = openai_setting_names[presetName];
         const presetData = openai_settings?.[idx];
         const pfData     = presetData?.extensions?.prompt_folding;
-        return pfData ? { ...pfData, sourcePreset: presetName } : null;
+        return pfData ? normalizePfData(pfData) : null;
     } catch (err) {
         console.error('[PF] exportConfigFromPreset failed:', err);
         return null;
@@ -203,23 +224,20 @@ export async function exportConfigFromPreset(presetName) {
 
 // --- 將來源 preset 的設定套用到當前 preset（UUID 匹配）---
 export async function importConfigToCurrentPreset(configData, currentPromptItems) {
-    log('Importing config from', configData.sourcePreset, 'to', getCurrentPresetName());
+    log('Importing config from another preset to', getCurrentPresetName());
 
-    state.foldingMode    = configData.foldingMode    || 'manual';
-    state.customDividers = configData.customDividers || config.defaultDividers;
-    state.debugMode      = configData.debugMode      || false;
+    // 先正規化再載入（configData 已經過 exportConfigFromPreset 正規化，但防禦性處理）
+    const normalized = normalizePfData(configData);
+    loadFromPreset(normalized);
 
-    // manualHeaders：支援純 UUID 或 {uuid, name} 兩種格式
-    const rawHeaders = configData.manualHeaders || [];
-    const srcUuids   = new Set(rawHeaders.map(h => (typeof h === 'string' ? h : h?.uuid)).filter(Boolean));
-
+    // manualHeaders UUID 匹配：只保留當前 preset 中存在的
     const currentUuids = new Set(
         currentPromptItems.map(item => item.dataset.pmIdentifier).filter(Boolean),
     );
 
     const matched = [];
     const failed  = [];
-    srcUuids.forEach(uuid => {
+    state.manualHeaders.forEach(uuid => {
         if (currentUuids.has(uuid)) {
             matched.push(uuid);
         } else {
@@ -230,7 +248,6 @@ export async function importConfigToCurrentPreset(configData, currentPromptItems
     state.manualHeaders = new Set(matched);
 
     await saveToPreset();
-    dividerRegex = buildDividerRegex();
 
     log('Import completed: matched', matched.length, 'failed', failed.length);
     return { byUuid: matched.length, failed };

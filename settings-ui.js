@@ -1,4 +1,4 @@
-import { state, saveCustomSettings, config, log, exportConfigFromPreset, importConfigToCurrentPreset, getCurrentPresetName, getAllPresetNames } from './state.js';
+import { state, saveCustomSettings, config, log, loadFromPreset, exportConfigFromPreset, importConfigToCurrentPreset, getCurrentPresetName, getAllPresetNames } from './state.js';
 import { buildCollapsibleGroups } from './prompt-folding.js';
 import { callGenericPopup, POPUP_TYPE } from '../../../popup.js';
 
@@ -124,10 +124,8 @@ async function handleReset(els) {
 
     if (!confirmed) return;
 
-    state.customDividers = [...config.defaultDividers];
-    state.foldingMode = 'manual';
-    state.debugMode = false;
-    state.manualHeaders.clear();
+    // 用 loadFromPreset(null) 重設所有欄位為預設值
+    loadFromPreset(null);
     saveCustomSettings();
 
     els.textarea.value = state.customDividers.join('\n');
