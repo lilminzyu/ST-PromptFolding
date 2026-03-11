@@ -1,25 +1,20 @@
-import { state, saveCustomSettings, config, log, reloadSettings, getAllPresetNames, exportConfigFromPreset, importConfigToCurrentPreset, getCurrentPresetName } from './state.js';
+import { state, saveCustomSettings, config, log, loadFromPreset, exportConfigFromPreset, importConfigToCurrentPreset, getCurrentPresetName, getAllPresetNames } from './state.js';
 import { buildCollapsibleGroups } from './prompt-folding.js';
 import { callGenericPopup, POPUP_TYPE } from '../../../popup.js';
 
-let listContainerRef = null; // 儲存 listContainer 引用
-let selectionSnapshot = null; // 進入選擇模式前的快照，供取消時還原
+let listContainerRef = null;
+let selectionSnapshot = null;
 
 export async function createSettingsPanel(pmContainer, listContainer) {
-    // 避免重複建立
     if (document.getElementById('prompt-folding-settings')) return;
 
-    // 儲存 listContainer 引用
     listContainerRef = listContainer;
 
     try {
         const res = await fetch('/scripts/extensions/third-party/ST-PromptFolding/settings.html');
         const html = await res.text();
 
-        // 找個好位置插入
         const header = pmContainer.querySelector('.completion_prompt_manager_header');
-
-        // 使用 insertAdjacentHTML
         (header || pmContainer).insertAdjacentHTML(header ? 'afterend' : 'beforebegin', html);
 
         initLogic();
@@ -29,13 +24,7 @@ export async function createSettingsPanel(pmContainer, listContainer) {
 }
 
 function initLogic() {
-    // 先重新載入當前 preset 的設定，確保 state 是最新的
-    reloadSettings();
-
-    // 重新渲染列表，確保顯示當前 preset 的分組
-    if (listContainerRef) {
-        buildCollapsibleGroups(listContainerRef);
-    }
+    // state 在 initialize() 中已由 loadFromPreset 填入，直接使用
 
     const els = {
         textarea: document.getElementById('prompt-folding-dividers'),
@@ -51,21 +40,20 @@ function initLogic() {
         copyConfigBtn: document.getElementById('prompt-folding-copy-config-btn'),
     };
 
-    // 1. 填入當前設定（使用剛剛重新載入的 state）
+    // 填入當前設定
     els.textarea.value = state.customDividers.join('\n');
     els.debugCheckbox.checked = state.debugMode;
 
     const currentRadio = document.querySelector(`input[name="folding-mode"][value="${state.foldingMode}"]`);
     if (currentRadio) currentRadio.checked = true;
 
-    // 若當前是舊版模式，自動展開折疊區塊
     if (state.foldingMode === 'standard' || state.foldingMode === 'sandwich') {
         document.getElementById('prompt-folding-legacy-modes')?.setAttribute('open', '');
     }
 
-    updateModeUI(); // 根據模式顯示/隱藏對應區塊
+    updateModeUI();
 
-    // 2. Debug 模式開關
+    // Debug 開關
     els.debugCheckbox.onchange = () => {
         state.debugMode = els.debugCheckbox.checked;
         saveCustomSettings();
@@ -73,7 +61,7 @@ function initLogic() {
         toastr.info(`Debug 模式：${state.debugMode ? '開啟' : '關閉'}`);
     };
 
-    // 3. 模式切換
+    // 模式切換
     document.getElementById('prompt-folding-mode-radios')?.addEventListener('change', (e) => {
         if (e.target.name === 'folding-mode') {
             state.foldingMode = e.target.value;
@@ -85,7 +73,7 @@ function initLogic() {
         }
     });
 
-    // 4. 分隔符號失焦自動存
+    // 分隔符號失焦自動存
     els.textarea.onblur = () => {
         const lines = els.textarea.value.split('\n').map(x => x.trim()).filter(x => x);
         if ((state.foldingMode === 'standard' || state.foldingMode === 'sandwich') && lines.length === 0) {
@@ -97,17 +85,17 @@ function initLogic() {
         refreshList();
     };
 
-    // 5. 重設 icon
+    // 重設 icon
     els.resetIcon.onclick = () => handleReset(els);
 
-    // 6. 開始選擇按鈕（手動模式）
+    // 開始選擇按鈕（手動模式）
     els.startSelectBtn.onclick = () => startManualSelection();
 
-    // 7. 載入可用的 preset 列表（每次點開都重新掃描）
+    // 載入可用 preset 列表
     loadAvailablePresets(els.copyFromPresetSelect);
     els.copyFromPresetSelect.addEventListener('focus', () => loadAvailablePresets(els.copyFromPresetSelect));
 
-    // 8. 複製配置按鈕
+    // 複製配置按鈕
     els.copyConfigBtn.onclick = () => handleCopyConfig(els);
 
     loadMetaInfo();
@@ -124,7 +112,6 @@ function getModeDisplayName() {
     return names[state.foldingMode] || state.foldingMode;
 }
 
-
 async function handleReset(els) {
     log('Reset button clicked');
 
@@ -132,18 +119,15 @@ async function handleReset(els) {
         `<div>確定重設所有設定？無法復原喔。</div>`,
         POPUP_TYPE.CONFIRM,
         '',
-        { okButton: '重設', cancelButton: '取消' }
+        { okButton: '重設', cancelButton: '取消' },
     );
 
     if (!confirmed) return;
 
-    state.customDividers = [...config.defaultDividers];
-    state.foldingMode = 'manual'; // 預設改為手動模式
-    state.debugMode = false;
-    state.manualHeaders.clear();
+    // 用 loadFromPreset(null) 重設所有欄位為預設值
+    loadFromPreset(null);
     saveCustomSettings();
 
-    // UI 還原
     els.textarea.value = state.customDividers.join('\n');
     els.debugCheckbox.checked = false;
     document.querySelector('input[value="manual"]').checked = true;
@@ -170,24 +154,19 @@ function startManualSelection() {
 
     state.isSelectingHeaders = true;
 
-    // 快照目前的選擇，供取消時還原
     selectionSnapshot = new Set(state.manualHeaders);
 
-    // 1. 在每個條目前面加勾選框
     const allItems = listContainerRef.querySelectorAll(config.selectors.promptListItem);
 
     allItems.forEach(item => {
-        if (item.querySelector('.mingyu-header-checkbox')) return; // 避免重複
+        if (item.querySelector('.mingyu-header-checkbox')) return;
 
         const checkbox = document.createElement('input');
         checkbox.type = 'checkbox';
         checkbox.className = 'mingyu-header-checkbox';
         checkbox.checked = state.manualHeaders.has(item.dataset.pmIdentifier);
 
-        // 阻止點擊事件冒泡到 li
         checkbox.onclick = (e) => e.stopPropagation();
-
-        // 綁定變更事件
         checkbox.onchange = (e) => {
             e.stopPropagation();
             const id = item.dataset.pmIdentifier;
@@ -200,11 +179,9 @@ function startManualSelection() {
             log('Manual header toggled:', id, checkbox.checked);
         };
 
-        // 插在最前面，成為第一個 grid item
         item.insertBefore(checkbox, item.firstChild);
     });
 
-    // 2. 原按鈕改為停用的「選擇中...」提示
     const startBtn = document.getElementById('prompt-folding-start-select');
     startBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> 選擇中...';
     startBtn.style.background = 'rgba(255, 255, 255, 0.1)';
@@ -212,7 +189,6 @@ function startManualSelection() {
     startBtn.style.pointerEvents = 'none';
     startBtn.id = 'prompt-folding-finish-select';
 
-    // 3. 建立浮動面板（已選數量 + ✓ + ✗）
     const panel = document.createElement('div');
     panel.id = 'prompt-folding-float-panel';
     panel.innerHTML = `
@@ -224,7 +200,6 @@ function startManualSelection() {
             <i class="fa-solid fa-xmark"></i>
         </div>
     `;
-    // 用 wrapper 掛進 #left-nav-panel，position: sticky 黏在可見區域底部
     const wrapper = document.createElement('div');
     wrapper.id = 'prompt-folding-float-wrapper';
     wrapper.appendChild(panel);
@@ -261,15 +236,11 @@ function finishManualSelection() {
     state.isSelectingHeaders = false;
     selectionSnapshot = null;
 
-    // 移除所有勾選框
     document.querySelectorAll('.mingyu-header-checkbox').forEach(cb => cb.remove());
-
-    // 移除浮動面板 wrapper
     document.getElementById('prompt-folding-float-wrapper')?.remove();
 
     restoreSelectButton();
 
-    // 儲存並重建
     saveCustomSettings();
     refreshList();
 
@@ -282,17 +253,13 @@ export function cancelManualSelection() {
 
     state.isSelectingHeaders = false;
 
-    // 還原快照
     if (selectionSnapshot !== null) {
         state.manualHeaders.clear();
         selectionSnapshot.forEach(id => state.manualHeaders.add(id));
         selectionSnapshot = null;
     }
 
-    // 移除所有勾選框
     document.querySelectorAll('.mingyu-header-checkbox').forEach(cb => cb.remove());
-
-    // 移除浮動面板 wrapper
     document.getElementById('prompt-folding-float-wrapper')?.remove();
 
     restoreSelectButton();
@@ -300,29 +267,37 @@ export function cancelManualSelection() {
     toastr.info('已取消，還原至修改前的選擇');
 }
 
-// 載入可用的 preset 列表
+// preset 切換後同步 UI 顯示
+export function updateSettingsUI() {
+    const textarea = document.getElementById('prompt-folding-dividers');
+    if (!textarea) return; // 設定面板未開啟
+
+    textarea.value = state.customDividers.join('\n');
+
+    const debugCheckbox = document.getElementById('prompt-folding-debug');
+    if (debugCheckbox) debugCheckbox.checked = state.debugMode;
+
+    const currentRadio = document.querySelector(`input[name="folding-mode"][value="${state.foldingMode}"]`);
+    if (currentRadio) currentRadio.checked = true;
+
+    updateModeUI();
+    loadAvailablePresets(document.getElementById('prompt-folding-copy-from-preset'));
+}
+
+// 載入可用 preset 列表（從 DOM dropdown）
 function loadAvailablePresets(selectElement) {
+    if (!selectElement) return;
+
     const currentPreset = getCurrentPresetName();
+    const presets = getAllPresetNames().filter(p => p !== currentPreset);
 
-    // 從 ST 的 preset 下拉選單讀取實際存在的 preset
-    const stSelect = document.querySelector('#settings_preset_openai');
-    const allStPresets = stSelect
-        ? Array.from(stSelect.options).map(o => o.textContent.trim()).filter(Boolean)
-        : [];
-
-    // 只保留在 ST 中存在、且 extension 有設定資料、且不是當前 preset 的
-    const existingKeys = getAllPresetNames();
-    const otherPresets = allStPresets.filter(p => p !== currentPreset && existingKeys.includes(p));
-
-    selectElement.innerHTML = '';
-
-    if (otherPresets.length === 0) {
+    if (presets.length === 0) {
         selectElement.innerHTML = '<option value="">（無其他 Preset）</option>';
         return;
     }
 
     selectElement.innerHTML = '<option value="">選擇要複製的 Preset</option>';
-    otherPresets.forEach(preset => {
+    presets.forEach(preset => {
         const option = document.createElement('option');
         option.value = preset;
         option.textContent = preset;
@@ -330,7 +305,7 @@ function loadAvailablePresets(selectElement) {
     });
 }
 
-// 處理複製配置
+// 複製配置（UUID 匹配）
 async function handleCopyConfig(els) {
     const sourcePreset = els.copyFromPresetSelect.value;
 
@@ -344,11 +319,10 @@ async function handleCopyConfig(els) {
         `會複製：<br>` +
         `• 摺疊模式<br>` +
         `• 分組符號設定<br>` +
-        `• 手動選擇的資料夾<br><br>` +
-        `<small style="opacity: 0.7;">（會透過名稱自動匹配條目）</small></div>`,
+        `• 手動選擇的資料夾（UUID 匹配）<br></div>`,
         POPUP_TYPE.CONFIRM,
         '',
-        { okButton: '複製', cancelButton: '取消' }
+        { okButton: '複製', cancelButton: '取消' },
     );
 
     if (!confirmed) return;
@@ -356,43 +330,29 @@ async function handleCopyConfig(els) {
     try {
         log('Copying config from', sourcePreset);
 
-        // 1. 匯出來源 preset 的配置
-        const configData = exportConfigFromPreset(sourcePreset);
+        const configData = await exportConfigFromPreset(sourcePreset);
+        if (!configData) {
+            toastr.warning(`「${sourcePreset}」尚無摺疊配置`);
+            return;
+        }
 
-        // 2. 取得當前列表中的所有項目
         if (!listContainerRef) {
             toastr.error('找不到提示詞列表');
             return;
         }
+
         const allItems = Array.from(listContainerRef.querySelectorAll(config.selectors.promptListItem));
+        const matchResults = await importConfigToCurrentPreset(configData, allItems);
 
-        // 3. 匯入配置（智能名稱匹配）
-        const matchResults = importConfigToCurrentPreset(configData, allItems);
-
-        // 4. 更新 UI
-        els.textarea.value = state.customDividers.join('\n');
-        els.debugCheckbox.checked = state.debugMode;
-        const currentRadio = document.querySelector(`input[name="folding-mode"][value="${state.foldingMode}"]`);
-        if (currentRadio) currentRadio.checked = true;
-        updateModeUI();
-
-        // 5. 重新渲染列表
+        updateSettingsUI();
         refreshList();
 
-        // 6. 顯示結果
         const failed = matchResults.failed.length;
-
-        let message = `配置複製完成！\n\n`;
-        message += `• 透過名稱匹配：${matchResults.byName} 個\n`;
-        if (matchResults.byUuid > 0) {
-            message += `• 透過 UUID 匹配：${matchResults.byUuid} 個\n`;
-        }
+        let message = `配置複製完成！\n• UUID 匹配：${matchResults.byUuid} 個`;
         if (failed > 0) {
-            message += `• 無法匹配：${failed} 個\n`;
-            message += `\n未匹配的條目：\n${matchResults.failed.slice(0, 5).join(', ')}${failed > 5 ? '...' : ''}`;
+            message += `\n• 無法匹配：${failed} 個`;
         }
-
-        toastr.success(message, '複製成功', { timeOut: 5000 });
+        toastr.success(message, '複製成功', { timeOut: 4000 });
 
     } catch (err) {
         console.error('[PF] Copy config failed:', err);
@@ -401,15 +361,14 @@ async function handleCopyConfig(els) {
 }
 
 function loadMetaInfo() {
-    // 版本
     fetch('/scripts/extensions/third-party/ST-PromptFolding/manifest.json')
         .then(r => r.json())
         .then(m => {
             const el = document.getElementById('prompt-folding-version-info');
+            if (!el) return;
             el.innerHTML = `v${m.version} © <a href="${m.homePage}" target="_blank" rel="noopener" style="color: inherit; opacity: 0.7;">${m.author}</a>`;
         });
 
-    // Changelog
     fetch('/scripts/extensions/third-party/ST-PromptFolding/changelog.json')
         .then(r => r.json())
         .then(logs => {

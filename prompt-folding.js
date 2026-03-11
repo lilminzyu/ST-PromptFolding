@@ -1,4 +1,10 @@
-import { config, state, dividerRegex, log, getStorageKey } from './state.js';
+import { config, state, dividerRegex, log, saveToPreset } from './state.js';
+
+let _saveTimer = null;
+function debouncedSave() {
+    clearTimeout(_saveTimer);
+    _saveTimer = setTimeout(() => saveToPreset().catch(console.error), 1500);
+}
 
 /**
  * 從 <a> 標籤中提取純文字名稱（不含 icon）
@@ -7,25 +13,6 @@ function extractTextName(link) {
     // 找純文字節點（nodeType === 3），不包含 <span> 等元素
     const textNodes = Array.from(link.childNodes).filter(n => n.nodeType === 3);
     return textNodes.map(n => n.textContent).join('').trim();
-}
-
-/**
- * 設定 <a> 標籤的純文字內容（保留 icon）
- */
-function setTextName(link, newText) {
-    // 找到純文字節點並更新
-    const textNodes = Array.from(link.childNodes).filter(n => n.nodeType === 3);
-    if (textNodes.length > 0) {
-        // 如果有多個文字節點，只改第一個（通常只有一個）
-        textNodes[0].textContent = newText;
-        // 清除其他文字節點
-        for (let i = 1; i < textNodes.length; i++) {
-            textNodes[i].textContent = '';
-        }
-    } else {
-        // 沒有文字節點，新增一個
-        link.appendChild(document.createTextNode(newText));
-    }
 }
 
 /**
@@ -46,8 +33,6 @@ function getGroupHeaderInfo(promptItem) {
   if (cachedName !== currentName) {
     log('Name changed for', itemId, ':', cachedName, '->', currentName);
     state.originalNames.set(itemId, currentName);
-    // 只存 originalNames，不要覆蓋其他設定
-    localStorage.setItem(getStorageKey(config.storageKeys.originalNames), JSON.stringify([...state.originalNames]));
   }
 
   const originalName = currentName;
@@ -85,11 +70,6 @@ function createGroupDOM(headerItem, headerInfo, contentItems) {
 
     const link = headerItem.querySelector(config.selectors.promptLink);
     if (link) {
-        // 重新讀取最新名稱（不使用 headerInfo 中可能過時的名稱）
-        const latestName = extractTextName(link);
-        // 設定名稱（保留 icon）
-        setTextName(link, latestName);
-
         // 在 link 上阻止原生點擊行為（避免觸發 inspect）
         link.addEventListener('click', (e) => {
             e.preventDefault();
@@ -132,7 +112,7 @@ function createGroupDOM(headerItem, headerInfo, contentItems) {
     // 6. 監聽開關狀態
     details.ontoggle = () => {
         state.openGroups[groupKey] = details.open;
-        localStorage.setItem(getStorageKey(config.storageKeys.openStates), JSON.stringify(state.openGroups));
+        debouncedSave();
     };
 
     return details;
@@ -142,9 +122,6 @@ function createGroupDOM(headerItem, headerInfo, contentItems) {
  * 主函式：重建列表
  */
 export function buildCollapsibleGroups(listContainer) {
-  // 強制同步最新的開關狀態
-  state.openGroups = JSON.parse(localStorage.getItem(getStorageKey(config.storageKeys.openStates)) || '{}');
-
   log('Building collapsible groups, mode:', state.foldingMode);
 
   if (!listContainer || state.isProcessing) return;
@@ -166,9 +143,6 @@ export function buildCollapsibleGroups(listContainer) {
         // 不需要 setTextName，因為已經是當前名稱了
       }
     });
-
-    // 保存更新後的名稱緩存（只存 originalNames，不要覆蓋其他設定）
-    localStorage.setItem(getStorageKey(config.storageKeys.originalNames), JSON.stringify([...state.originalNames]));
 
     // 2. 清空並重置狀態
     listContainer.innerHTML = '';
@@ -257,8 +231,11 @@ export function buildCollapsibleGroups(listContainer) {
  */
 export function toggleAllGroups(listContainer, shouldOpen) {
   const details = listContainer.querySelectorAll(`.${config.classNames.group}`);
-  details.forEach(el => el.open = shouldOpen);
-  // 狀態就不一個個存了，下次重建時會自動更新
+  details.forEach(el => {
+      el.open = shouldOpen;
+      state.openGroups[el.dataset.groupKey] = shouldOpen;
+  });
+  saveToPreset().catch(console.error);
 }
 
 /**
