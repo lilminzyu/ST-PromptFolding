@@ -1,5 +1,12 @@
 [
   {
+    "version": "2.7.0",
+    "date": "2026.03.11",
+    "changes": [
+      "feat: 新增「折設定」勾選框，可將 OpenAI API 參數區塊折疊收起，狀態存於 localStorage。"
+    ]
+  },
+  {
     "version": "2.6.1",
     "date": "2026.03.11",
     "changes": [
