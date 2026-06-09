@@ -48,13 +48,19 @@ export let state = {
     isSelectingHeaders: false,
 };
 
-// 初始化 Regex
-export let dividerRegex = buildDividerRegex();
-
 // 建立分隔線 Regex (特殊字元自動跳脫)
-export function buildDividerRegex() {
+function _buildRegex() {
     const patterns = state.customDividers.map(p => p.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
     return new RegExp(`^(${patterns.join('|')})`, 'i');
+}
+
+// 初始化 Regex
+export let dividerRegex = _buildRegex();
+
+// 重建並更新 module-level 的 dividerRegex
+export function buildDividerRegex() {
+    dividerRegex = _buildRegex();
+    return dividerRegex;
 }
 
 // Debug log 函式
@@ -87,7 +93,7 @@ export function loadFromPreset(pfData) {
     // originalNames 不從 preset 讀取，保持 runtime cache（由 prompt-folding.js 即時填入）
     state.originalNames  = new Map();
 
-    dividerRegex = buildDividerRegex();
+    buildDividerRegex();
     log('loadFromPreset:', pfData ? `mode=${state.foldingMode}, headers=${uuids.length}` : 'no data, using defaults');
 }
 

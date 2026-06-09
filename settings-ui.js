@@ -1,4 +1,4 @@
-import { state, saveCustomSettings, config, log, loadFromPreset, exportConfigFromPreset, importConfigToCurrentPreset, getCurrentPresetName, getAllPresetNames } from './state.js';
+import { state, saveCustomSettings, config, log, loadFromPreset, exportConfigFromPreset, importConfigToCurrentPreset, getCurrentPresetName, getAllPresetNames, buildDividerRegex } from './state.js';
 import { buildCollapsibleGroups } from './prompt-folding.js';
 import { callGenericPopup, POPUP_TYPE } from '../../../popup.js';
 
@@ -87,17 +87,12 @@ function initLogic() {
         }
     });
 
-    // 分隔符號失焦自動存
-    els.textarea.onblur = () => {
-        const lines = els.textarea.value.split('\n').map(x => x.trim()).filter(x => x);
-        if ((state.foldingMode === 'standard' || state.foldingMode === 'sandwich') && lines.length === 0) {
-            toastr.warning('請至少輸入一個符號');
-            return;
-        }
-        state.customDividers = lines;
-        saveCustomSettings();
-        refreshList();
-    };
+    // 分隔符號變動時彈出確認面板
+    console.log('[PF] textarea element:', els.textarea);
+    els.textarea.addEventListener('input', () => {
+        console.log('[PF] textarea input event fired');
+        showDividerConfirmPanel();
+    });
 
     // 重設 icon
     els.resetIcon.onclick = () => handleReset(els);
@@ -155,6 +150,64 @@ function refreshList() {
     if (listContainerRef) {
         buildCollapsibleGroups(listContainerRef);
     }
+}
+
+// --- 分隔符號確認面板 ---
+let _dividerSnapshot = null;
+
+function showDividerConfirmPanel() {
+    console.log('[PF] showDividerConfirmPanel called');
+    if (document.getElementById('prompt-folding-float-wrapper')) return;
+
+    // 記住修改前的值，供取消還原
+    _dividerSnapshot = [...state.customDividers];
+
+    const panel = document.createElement('div');
+    panel.id = 'prompt-folding-float-panel';
+    panel.innerHTML = `
+        <div id="prompt-folding-float-finish" class="menu_button menu_button_icon">
+            <i class="fa-solid fa-check"></i>
+        </div>
+        <div id="prompt-folding-float-cancel" class="menu_button menu_button_icon">
+            <i class="fa-solid fa-xmark"></i>
+        </div>
+    `;
+    const wrapper = document.createElement('div');
+    wrapper.id = 'prompt-folding-float-wrapper';
+    wrapper.appendChild(panel);
+
+    const navPanel = document.getElementById('left-nav-panel') || document.body;
+    navPanel.appendChild(wrapper);
+
+    panel.querySelector('#prompt-folding-float-finish').onclick = applyDividerChanges;
+    panel.querySelector('#prompt-folding-float-cancel').onclick = cancelDividerChanges;
+}
+
+function applyDividerChanges() {
+    const textarea = document.getElementById('prompt-folding-dividers');
+    const lines = textarea.value.split('\n').map(x => x.trim()).filter(x => x);
+    if ((state.foldingMode === 'standard' || state.foldingMode === 'sandwich') && lines.length === 0) {
+        toastr.warning('請至少輸入一個符號');
+        return;
+    }
+    state.customDividers = lines;
+    buildDividerRegex();
+    saveCustomSettings();
+    refreshList();
+
+    _dividerSnapshot = null;
+    document.getElementById('prompt-folding-float-wrapper')?.remove();
+    toastr.success('分隔符號已套用');
+}
+
+function cancelDividerChanges() {
+    if (_dividerSnapshot) {
+        state.customDividers = _dividerSnapshot;
+        const textarea = document.getElementById('prompt-folding-dividers');
+        if (textarea) textarea.value = _dividerSnapshot.join('\n');
+        _dividerSnapshot = null;
+    }
+    document.getElementById('prompt-folding-float-wrapper')?.remove();
 }
 
 // 手動選擇邏輯

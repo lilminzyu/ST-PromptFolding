@@ -196,11 +196,8 @@ export function buildCollapsibleGroups(listContainer) {
           continue;
         }
 
-        // 找配對的結束標題
-        const closerIdx = remaining.findIndex(item => {
-            const otherInfo = getGroupHeaderInfo(item);
-            return otherInfo && otherInfo.originalName === info.originalName;
-        });
+        // 找下一個標頭作為結束標記（不需同名，按順序兩兩配對）
+        const closerIdx = remaining.findIndex(item => getGroupHeaderInfo(item) !== null);
 
         if (closerIdx !== -1) {
           // 抓出中間這整包 (含結束標題)
